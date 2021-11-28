@@ -143,17 +143,36 @@ namespace Stride.Assets.Models
 
         private static void ImportAnimation(List<AssetItem> assetReferences, UFile localPath, List<string> animationNodes, bool shouldPostFixName, AssetItem skeletonAsset, TimeSpan animationStartTime, TimeSpan animationEndTime)
         {
+
             if (animationNodes != null && animationNodes.Count > 0)
             {
-                var assetSource = localPath;
+                if (GltfAssetImporter.FileExtensions.Contains(localPath.GetFileExtension()))
+                {
+                    foreach (var anim in animationNodes)
+                    {
+                        var assetSource = localPath;
 
-                var asset = new AnimationAsset { Source = assetSource, AnimationTimeMaximum = animationEndTime, AnimationTimeMinimum = animationStartTime };
-                var animUrl = localPath.GetFileNameWithoutExtension() + (shouldPostFixName ? " Animation" : "");
+                        var asset = new AnimationAsset { Source = assetSource, AnimationTimeMaximum = animationEndTime, AnimationTimeMinimum = animationStartTime };
+                        string animUrl = anim + "_Animation";
 
-                if (skeletonAsset != null)
-                    asset.Skeleton = AttachedReferenceManager.CreateProxyObject<Skeleton>(skeletonAsset.Id, skeletonAsset.Location);
+                        if (skeletonAsset != null)
+                            asset.Skeleton = AttachedReferenceManager.CreateProxyObject<Skeleton>(skeletonAsset.Id, skeletonAsset.Location);
 
-                assetReferences.Add(new AssetItem(animUrl, asset));
+                        assetReferences.Add(new AssetItem(animUrl, asset));
+                    }
+                }
+                else
+                {
+                    var assetSource = localPath;
+
+                    var asset = new AnimationAsset { Source = assetSource, AnimationTimeMaximum = animationEndTime, AnimationTimeMinimum = animationStartTime };
+                    var animUrl = localPath.GetFileNameWithoutExtension() + (shouldPostFixName ? " Animation" : "");
+
+                    if (skeletonAsset != null)
+                        asset.Skeleton = AttachedReferenceManager.CreateProxyObject<Skeleton>(skeletonAsset.Id, skeletonAsset.Location);
+
+                    assetReferences.Add(new AssetItem(animUrl, asset));
+                }
             }
         }
 
