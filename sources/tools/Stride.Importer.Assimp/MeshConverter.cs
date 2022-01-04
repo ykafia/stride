@@ -111,7 +111,7 @@ namespace Stride.Importer.Assimp
 
                 return entityInfo;
             }
-            catch
+            catch(Exception ex)
             {
                 return null;
             }
@@ -782,13 +782,18 @@ namespace Stride.Importer.Assimp
                             else
                             {
                                 if (AllowUnsignedBlendIndices)
-                                    ((byte*)(vbPointer + blendIndicesOffset))[bone] = (byte)vertexIndexToBoneIdWeight[(int)i][bone].Item1;
+                                    if (bone < vertexIndexToBoneIdWeight[(int)i].Count)
+                                        ((byte*)(vbPointer + blendIndicesOffset))[bone] = (byte)vertexIndexToBoneIdWeight[(int)i][bone].Item1;
+                                    else
+                                        ((byte*)(vbPointer + blendIndicesOffset))[bone] = 0;
 
                                 else
                                     ((sbyte*)(vbPointer + blendIndicesOffset))[bone] = (sbyte)vertexIndexToBoneIdWeight[(int)i][bone].Item1;
                             }
-
-                            ((float*)(vbPointer + blendWeightOffset))[bone] = vertexIndexToBoneIdWeight[(int)i][bone].Item2;
+                            if (bone < vertexIndexToBoneIdWeight[(int)i].Count)
+                                ((float*)(vbPointer + blendWeightOffset))[bone] = vertexIndexToBoneIdWeight[(int)i][bone].Item2;
+                            else
+                                ((float*)(vbPointer + blendWeightOffset))[bone] = 0;
                         }
                     }
 
@@ -873,13 +878,15 @@ namespace Stride.Importer.Assimp
 
                 var totalWeight = 0.0f;
                 for (var boneId = 0; boneId < nbBoneByVertex; ++boneId)
-                    totalWeight += curVertexWeights[boneId].Item2;
+                    if(boneId>-1 && boneId < curVertexWeights.Count)
+                        totalWeight += curVertexWeights[boneId].Item2;
 
                 if (totalWeight == 0.0) // Assimp weights are positive, so in this case all weights are nulls
                     continue;
 
                 for (var boneId = 0; boneId < nbBoneByVertex; ++boneId)
-                    curVertexWeights[boneId] = (curVertexWeights[boneId].Item1, curVertexWeights[boneId].Item2 / totalWeight);
+                    if (boneId > -1 && boneId < curVertexWeights.Count)
+                        curVertexWeights[boneId] = (curVertexWeights[boneId].Item1, curVertexWeights[boneId].Item2 / totalWeight);
             }
         }
 
@@ -1059,12 +1066,13 @@ namespace Stride.Importer.Assimp
 
             IComputeColor curComposition = null, newCompositionFather = null;
 
-            var isRootElement = true;
+            //var isRootElement = true;
             IComputeColor rootMaterial = null;
 
             while (!stack.IsEmpty)
             {
                 var top = stack.Pop();
+                var isRootElement = top.type != Material.StackType.Operation;
 
                 IComputeColor curCompositionFather = null;
                 if (!isRootElement)
@@ -1075,7 +1083,6 @@ namespace Stride.Importer.Assimp
                     curCompositionFather = compositionFathers.Pop();
                 }
 
-                var set = sets.Pop();
 
                 var type = top.type;
                 var strength = top.blend;
@@ -1143,7 +1150,9 @@ namespace Stride.Importer.Assimp
                 }
                 else
                 {
-                    if (set == 0)
+                    var set = sets.Pop();
+
+                    if (set == 0 && curCompositionFather != null)
                     {
                         ((ComputeBinaryColor)curCompositionFather).LeftChild = curComposition;
                         compositionFathers.Push(curCompositionFather);
