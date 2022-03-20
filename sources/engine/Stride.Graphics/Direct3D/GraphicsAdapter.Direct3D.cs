@@ -23,10 +23,10 @@
 using System;
 using System.Collections.Generic;
 using System.Resources;
-using SharpDX;
-using SharpDX.Direct3D;
-using SharpDX.Direct3D11;
-using SharpDX.DXGI;
+
+using Silk.NET.DXGI;
+using Silk.NET.Core.Native;
+using Silk.NET.Direct3D11;
 using Stride.Core;
 using ComponentBase = Stride.Core.ComponentBase;
 using Utilities = Stride.Core.Utilities;
@@ -41,9 +41,9 @@ namespace Stride.Graphics
     /// <unmanaged-short>IDXGIAdapter1</unmanaged-short>
     public partial class GraphicsAdapter
     {
-        private readonly Adapter1 adapter;
+        private readonly ComPtr<ID3D11Adapter1> adapter;
         private readonly int adapterOrdinal;
-        private readonly AdapterDescription1 description;
+        private readonly ComPtr<AdapterDesc1> description;
 
         private GraphicsProfile minimumUnsupportedProfile = (GraphicsProfile)int.MaxValue;
         private GraphicsProfile maximumSupportedProfile;
@@ -53,20 +53,29 @@ namespace Stride.Graphics
         /// </summary>
         /// <param name="defaultFactory">The default factory.</param>
         /// <param name="adapterOrdinal">The adapter ordinal.</param>
-        internal GraphicsAdapter(Factory1 defaultFactory, int adapterOrdinal)
+        internal GraphicsAdapter(ComPtr<IDXGIFactory1> defaultFactory, int adapterOrdinal)
         {
-            this.adapterOrdinal = adapterOrdinal;
-            adapter = defaultFactory.GetAdapter1(adapterOrdinal).DisposeBy(this);
-            description = adapter.Description1;
-            description.Description = description.Description.TrimEnd('\0'); // for some reason sharpDX returns an adaptater name of fixed size filled with trailing '\0'
-            //var nativeOutputs = adapter.Outputs;
+            unsafe
+            {
+                var adapter = new ComPtr<IDXGIAdapter1>();
+                defaultFactory.Get().EnumAdapters1((uint)adapterOrdinal, ref adapter.Handle);
+                this.adapterOrdinal = adapterOrdinal;
+                adapter.Get().GetDesc1(description.Handle);
 
-            var count = adapter.GetOutputCount();
-            outputs = new GraphicsOutput[count];
-            for (var i = 0; i < outputs.Length; i++)
-                outputs[i] = new GraphicsOutput(this, i).DisposeBy(this);
 
-            AdapterUid = adapter.Description1.Luid.ToString();
+                ComPtr<IDXGIOutput> e = new();
+                int count = 0;
+
+                while ((ulong)adapter.Get().EnumOutputs((uint)count, &e.Handle) == (ulong)ResultCode.S_OK)
+                    count += 1;
+
+                outputs = new GraphicsOutput[count];
+                for (var i = 0; i < outputs.Length; i++)
+                    outputs[i] = new GraphicsOutput(this, i).DisposeBy(this);
+
+                AdapterUid = description.Get().AdapterLuid.High.ToString("X") + description.Get().AdapterLuid.Low.ToString("X");
+            }
+            
         }
 
         /// <summary>
@@ -77,7 +86,10 @@ namespace Stride.Graphics
         {
             get
             {
-                return description.Description;
+                unsafe
+                {
+                    return SilkMarshal.PtrToString((nint)description.Handle->Description);
+                }
             }
         }
 
@@ -89,7 +101,7 @@ namespace Stride.Graphics
         /// </value>
         public int VendorId
         {
-            get { return description.VendorId; }
+            get { return (int)description.Get().VendorId; }
         }
 
         /// <summary>
@@ -103,7 +115,7 @@ namespace Stride.Graphics
             }
         }
 
-        internal Adapter1 NativeAdapter
+        internal ComPtr<ID3D11Adapter1> NativeAdapter
         {
             get
             {
@@ -130,15 +142,39 @@ namespace Stride.Graphics
                 return false;
 
             // Check and min/max cached values
-            if (SharpDX.Direct3D11.Device.IsSupportedFeatureLevel(this.NativeAdapter, (SharpDX.Direct3D.FeatureLevel)graphicsProfile))
+            unsafe
             {
-                maximumSupportedProfile = graphicsProfile;
+                //TODO change to silk marshal with Guiid
+
+                var featureLevels = new D3DFeatureLevel[]{
+                    D3DFeatureLevel.D3DFeatureLevel111,
+                    D3DFeatureLevel.D3DFeatureLevel110,
+                    D3DFeatureLevel.D3DFeatureLevel101,
+                    D3DFeatureLevel.D3DFeatureLevel100,
+                    D3DFeatureLevel.D3DFeatureLevel93,
+                    D3DFeatureLevel.D3DFeatureLevel92,
+                    D3DFeatureLevel.D3DFeatureLevel91
+                };
+
+                D3DFeatureLevel level = D3DFeatureLevel.D3DFeatureLevel91;
+
+                fixed (D3DFeatureLevel* levels = featureLevels)
+                    SilkMarshal.ThrowHResult(
+                        D3D11.GetApi().CreateDevice(
+                            null,
+                            D3DDriverType.D3DDriverTypeHardware,
+                            0,
+                            0,
+                            levels,
+                            (uint)featureLevels.Length,
+                            D3D11.SdkVersion,
+                            null,
+                            &level,
+                            null
+                    ));
+                maximumSupportedProfile = (GraphicsProfile)level;
+                minimumUnsupportedProfile = (GraphicsProfile)D3DFeatureLevel.D3DFeatureLevel91;
                 return true;
-            }
-            else
-            {
-                minimumUnsupportedProfile = graphicsProfile;
-                return false;
             }
 #endif
         }

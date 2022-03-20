@@ -2,7 +2,8 @@
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 #if STRIDE_GRAPHICS_API_DIRECT3D
 using System.Collections.Generic;
-using SharpDX.DXGI;
+using Silk.NET.Core.Native;
+using Silk.NET.DXGI;
 
 namespace Stride.Graphics
 {
@@ -11,7 +12,7 @@ namespace Stride.Graphics
 #if STRIDE_PLATFORM_UWP || DIRECTX11_1
         internal static Factory2 NativeFactory;
 #else
-        internal static Factory1 NativeFactory;
+        internal static ComPtr<IDXGIFactory1> NativeFactory;
 #endif
 
         /// <summary>
@@ -28,12 +29,18 @@ namespace Stride.Graphics
             // Maybe this will become default code for everybody if we switch to DX 11.1/11.2 SharpDX dll?
             NativeFactory = new Factory2();
 #else
-            NativeFactory = new Factory1();
+            NativeFactory = new();
 #endif
 
             staticCollector.Add(NativeFactory);
-
-            int countAdapters = NativeFactory.GetAdapterCount1();
+            
+            uint countAdapters = 0;
+            unsafe
+            {
+                while (NativeFactory.Get().EnumAdapters1(countAdapters, null) == (int)ResultCode.S_OK)
+                    countAdapters++;
+            }
+                
             var adapterList = new List<GraphicsAdapter>();
             for (int i = 0; i < countAdapters; i++)
             {
@@ -49,7 +56,7 @@ namespace Stride.Graphics
         /// <summary>
         /// Gets the <see cref="Factory1"/> used by all GraphicsAdapter.
         /// </summary>
-        internal static Factory1 Factory
+        internal static ComPtr<IDXGIFactory1> Factory
         {
             get
             {

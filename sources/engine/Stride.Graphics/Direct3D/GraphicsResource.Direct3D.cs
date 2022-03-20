@@ -4,6 +4,8 @@
 using System;
 
 using SharpDX.Direct3D11;
+using Silk.NET.Core.Native;
+using Silk.NET.Direct3D11;
 
 namespace Stride.Graphics
 {
@@ -12,8 +14,8 @@ namespace Stride.Graphics
     /// </summary>
     public abstract partial class GraphicsResource
     {
-        private ShaderResourceView shaderResourceView;
-        private UnorderedAccessView unorderedAccessView;
+        private ComPtr<ID3D11ShaderResourceView> shaderResourceView;
+        private ComPtr<ID3D11UnorderedAccessView> unorderedAccessView;
         internal bool DiscardNextMap; // Used to internally force a WriteDiscard (to force a rename) with the GraphicsResourceAllocator
 
         protected bool IsDebugMode
@@ -29,15 +31,15 @@ namespace Stride.Graphics
             base.OnNameChanged();
             if (IsDebugMode)
             {
-                if (this.shaderResourceView != null)
-                {
-                    shaderResourceView.DebugName = Name == null ? null : $"{Name} SRV";
-                }
+                //if (this.shaderResourceView.Handle != null)
+                //{
+                //    shaderResourceView.DebugName = Name == null ? null : $"{Name} SRV";
+                //}
 
-                if (this.unorderedAccessView != null)
-                {
-                    unorderedAccessView.DebugName = Name == null ? null : $"{Name} UAV";
-                }
+                //if (this.unorderedAccessView != null)
+                //{
+                //    unorderedAccessView.DebugName = Name == null ? null : $"{Name} UAV";
+                //}
             }
         }
 
@@ -46,7 +48,7 @@ namespace Stride.Graphics
         /// Note that only Texture, Texture3D, RenderTarget2D, RenderTarget3D, DepthStencil are using this ShaderResourceView
         /// </summary>
         /// <value>The device child.</value>
-        protected internal SharpDX.Direct3D11.ShaderResourceView NativeShaderResourceView
+        protected internal ComPtr<ID3D11ShaderResourceView> NativeShaderResourceView
         {
             get
             {
@@ -55,11 +57,14 @@ namespace Stride.Graphics
             set
             {
                 shaderResourceView = value;
-
-                if (IsDebugMode && shaderResourceView != null)
-                {
-                    shaderResourceView.DebugName = Name == null ? null : $"{Name} SRV";
-                }
+                //unsafe
+                //{
+                //    if (IsDebugMode && shaderResourceView.Handle != null)
+                //    {
+                //        shaderResourceView.DebugName = Name == null ? null : $"{Name} SRV";
+                //    }
+                //}
+                
             }
         }
 
@@ -67,7 +72,7 @@ namespace Stride.Graphics
         /// Gets or sets the UnorderedAccessView attached to this GraphicsResource.
         /// </summary>
         /// <value>The device child.</value>
-        protected internal UnorderedAccessView NativeUnorderedAccessView
+        protected internal ComPtr<ID3D11UnorderedAccessView> NativeUnorderedAccessView
         {
             get
             {
@@ -77,17 +82,17 @@ namespace Stride.Graphics
             {
                 unorderedAccessView = value;
 
-                if (IsDebugMode && unorderedAccessView != null)
-                {
-                    unorderedAccessView.DebugName = Name == null ? null : $"{Name} UAV";
-                }
+                //if (IsDebugMode && unorderedAccessView != null)
+                //{
+                //    unorderedAccessView.DebugName = Name == null ? null : $"{Name} UAV";
+                //}
             }
         }
 
         protected internal override void OnDestroyed()
         {
-            ReleaseComObject(ref shaderResourceView);
-            ReleaseComObject(ref unorderedAccessView);
+            shaderResourceView.Release();
+            unorderedAccessView.Release();
 
             base.OnDestroyed();
         }

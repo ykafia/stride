@@ -1,7 +1,10 @@
 // Copyright (c) .NET Foundation and Contributors (https://dotnetfoundation.org/ & https://stride3d.net) and Silicon Studio Corp. (https://www.siliconstudio.co.jp)
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 #if STRIDE_GRAPHICS_API_DIRECT3D 
-using SharpDX.Direct3D;
+using Silk.NET.Core.Native;
+using Silk.NET.Direct3D;
+using Silk.NET.Direct3D11;
+
 
 namespace Stride.Graphics
 {
@@ -11,17 +14,17 @@ namespace Stride.Graphics
         /// Returns a GraphicsProfile from a FeatureLevel.
         /// </summary>
         /// <returns>associated GraphicsProfile</returns>
-        public static FeatureLevel[] ToFeatureLevel(this GraphicsProfile[] profiles)
+        public static D3DFeatureLevel[] ToFeatureLevel(this GraphicsProfile[] profiles)
         {
             if (profiles == null)
             {
                 return null;
             }
 
-            var levels = new FeatureLevel[profiles.Length];
+            var levels = new D3DFeatureLevel[profiles.Length];
             for (int i = 0; i < levels.Length; i++)
             {
-                levels[i] = (FeatureLevel)profiles[i];
+                levels[i] = (D3DFeatureLevel)profiles[i];
             }
             return levels;
         }
@@ -30,9 +33,9 @@ namespace Stride.Graphics
         /// Returns a GraphicsProfile from a FeatureLevel.
         /// </summary>
         /// <returns>associated GraphicsProfile</returns>
-        public static FeatureLevel ToFeatureLevel(this GraphicsProfile profile)
+        public static D3DFeatureLevel ToFeatureLevel(this GraphicsProfile profile)
         {
-            return (FeatureLevel)profile;
+            return (D3DFeatureLevel)profile;
         }
 
         /// <summary>
@@ -40,7 +43,7 @@ namespace Stride.Graphics
         /// </summary>
         /// <param name="level">The level.</param>
         /// <returns>associated GraphicsProfile</returns>
-        public static GraphicsProfile FromFeatureLevel(FeatureLevel level)
+        public static GraphicsProfile FromFeatureLevel(D3DFeatureLevel level)
         {
             return (GraphicsProfile)level;
         }

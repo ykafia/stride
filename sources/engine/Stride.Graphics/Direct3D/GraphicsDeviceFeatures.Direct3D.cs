@@ -23,8 +23,11 @@
 
 using System;
 using System.Collections.Generic;
-using SharpDX.Direct3D11;
-using SharpDX.DXGI;
+using Silk.NET.Direct3D11;
+using Silk.NET.DXGI;
+using Silk.NET.Direct3D;
+using Silk.NET.Core.Native;
+
 
 namespace Stride.Graphics
 {
@@ -36,7 +39,7 @@ namespace Stride.Graphics
     /// </remarks>
     public partial struct GraphicsDeviceFeatures
     {
-        private static readonly List<SharpDX.DXGI.Format> ObsoleteFormatToExcludes = new List<SharpDX.DXGI.Format>() { Format.R1_UNorm, Format.B5G6R5_UNorm, Format.B5G5R5A1_UNorm };
+        private static readonly List<Format> ObsoleteFormatToExcludes = new List<Format>() { Format.FormatR1Unorm, Format.FormatB5G6R5Unorm, Format.FormatB5G5R5A1Unorm };
 
         internal GraphicsDeviceFeatures(GraphicsDevice deviceRoot)
         {
@@ -48,13 +51,29 @@ namespace Stride.Graphics
 
             // Set back the real GraphicsProfile that is used
             RequestedProfile = deviceRoot.RequestedProfile;
-            CurrentProfile = GraphicsProfileHelper.FromFeatureLevel(nativeDevice.FeatureLevel);
+            CurrentProfile = GraphicsProfileHelper.FromFeatureLevel(nativeDevice.Get().GetFeatureLevel());
 
             HasResourceRenaming = true;
+            FeatureDataD3D10XHardwareOptions opt;
+            FeatureDataDoubles dbs;
+            FeatureDataThreading thr;
 
-            HasComputeShaders = nativeDevice.CheckFeatureSupport(SharpDX.Direct3D11.Feature.ComputeShaders);
-            HasDoublePrecision = nativeDevice.CheckFeatureSupport(SharpDX.Direct3D11.Feature.ShaderDoubles);
-            nativeDevice.CheckThreadingSupport(out HasMultiThreadingConcurrentResources, out this.HasDriverCommandLists);
+
+
+            unsafe
+            {
+                nativeDevice.Get().CheckFeatureSupport(Silk.NET.Direct3D11.Feature.FeatureD3D10XHardwareOptions, (void*)&opt, (uint)sizeof(FeatureDataD3D10XHardwareOptions));
+                HasComputeShaders = opt.ComputeShadersPlusRawAndStructuredBuffersViaShader4X > 0;
+
+                nativeDevice.Get().CheckFeatureSupport(Silk.NET.Direct3D11.Feature.FeatureDoubles, (void*)&dbs, (uint)sizeof(FeatureDataDoubles));
+                HasDoublePrecision = dbs.DoublePrecisionFloatShaderOps > 0;
+
+                nativeDevice.Get().CheckFeatureSupport(Silk.NET.Direct3D11.Feature.FeatureThreading, (void*)&thr, (uint)sizeof(FeatureDataThreading));
+                HasMultiThreadingConcurrentResources = thr.DriverConcurrentCreates > 0;
+                HasDriverCommandLists = thr.DriverCommandLists > 0;
+
+
+            }
 
             HasDepthAsSRV = (CurrentProfile >= GraphicsProfile.Level_10_0);
             HasDepthAsReadOnlyRT = CurrentProfile >= GraphicsProfile.Level_11_0;
@@ -63,18 +82,22 @@ namespace Stride.Graphics
             // Check features for each DXGI.Format
             foreach (var format in Enum.GetValues(typeof(SharpDX.DXGI.Format)))
             {
-                var dxgiFormat = (SharpDX.DXGI.Format)format;
+                var dxgiFormat = (Format)format;
                 var maximumMultisampleCount = MultisampleCount.None;
-                var computeShaderFormatSupport = ComputeShaderFormatSupport.None;
+                var computeShaderFormatSupport = 0;
                 var formatSupport = FormatSupport.None;
 
                 if (!ObsoleteFormatToExcludes.Contains(dxgiFormat))
                 {
                     maximumMultisampleCount = GetMaximumMultisampleCount(nativeDevice, dxgiFormat);
                     if (HasComputeShaders)
-                        computeShaderFormatSupport = nativeDevice.CheckComputeShaderFormatSupport(dxgiFormat);
+                        computeShaderFormatSupport = opt.ComputeShadersPlusRawAndStructuredBuffersViaShader4X; //nativeDevice.Get().CheckComputeShaderFormatSupport(dxgiFormat);
 
-                    formatSupport = (FormatSupport)nativeDevice.CheckFormatSupport(dxgiFormat);
+                    formatSupport = new FormatSupport();
+                    unsafe
+                    {
+                        nativeDevice.Get().CheckFormatSupport(dxgiFormat, (uint*)&formatSupport);
+                    }
                 }
 
                 //mapFeaturesPerFormat[(int)dxgiFormat] = new FeaturesPerFormat((PixelFormat)dxgiFormat, maximumMultisampleCount, computeShaderFormatSupport, formatSupport);
@@ -88,13 +111,16 @@ namespace Stride.Graphics
         /// <param name="device">The device.</param>
         /// <param name="pixelFormat">The pixelFormat.</param>
         /// <returns>The maximum multisample count for this pixel pixelFormat</returns>
-        private static MultisampleCount GetMaximumMultisampleCount(SharpDX.Direct3D11.Device device, SharpDX.DXGI.Format pixelFormat)
+        private static MultisampleCount GetMaximumMultisampleCount(ComPtr<ID3D11Device> device, Format pixelFormat)
         {
             int maxCount = 1;
             for (int i = 1; i <= 8; i *= 2)
             {
-                if (device.CheckMultisampleQualityLevels(pixelFormat, i) != 0)
-                    maxCount = i;
+                unsafe
+                {
+                    if (device.Get().CheckMultisampleQualityLevels(pixelFormat, (uint)i, null) != 0)
+                        maxCount = i;
+                }
             }
             return (MultisampleCount)maxCount;
         }
