@@ -175,7 +175,7 @@
     <ClCompile Include="UtilityFunctions.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Stride.Importer.Common\ImporterUtils.h" />
+    <ClInclude Include="..\Stride.Importer.Assimp\ImporterUtils.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="UtilityFunctions.h" />
   </ItemGroup>
@@ -190,6 +190,9 @@
     <ProjectReference Include="..\..\assets\Stride.Core.Assets\Stride.Core.Assets.csproj">
       <Project>{1e54a9a2-4439-4444-ae57-6d2ed3c0dc47}</Project>
       <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Stride.Importer.Common\Stride.Importer.Common.csproj">
+      <Project>{806aa078-6070-4bb6-b05b-6ee6b21b1cde}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\core\Stride.Core.Design\Stride.Core.Design.csproj">
       <Project>{66581dad-70ad-4475-ae47-c6c0df1ec5e2}</Project>
@@ -241,10 +244,6 @@
     </ProjectReference>
     <ProjectReference Include="..\..\buildengine\Stride.Core.BuildEngine.Common\Stride.Core.BuildEngine.Common.csproj">
       <Project>{7732cb84-a39a-4adf-b740-fd32a352fa8a}</Project>
-      <Private>False</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\Stride.Importer.Common\Stride.Importer.Common.vcxproj">
-      <Project>{43a6e62e-1b1c-4630-abb8-c3f716004645}</Project>
       <Private>False</Private>
     </ProjectReference>
   </ItemGroup>

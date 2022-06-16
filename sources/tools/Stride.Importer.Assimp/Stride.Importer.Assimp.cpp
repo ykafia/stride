@@ -2,7 +2,7 @@
 // Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
 #include "stdafx.h"
 #include "../Stride.Assimp.Translation/Extension.h"
-#include "../Stride.Importer.Common/ImporterUtils.h"
+#include "ImporterUtils.h"
 
 #include <string>
 #include <map>
