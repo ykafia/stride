@@ -186,9 +186,6 @@
       <Project>{1e54a9a2-4439-4444-ae57-6d2ed3c0dc47}</Project>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="..\Stride.Importer.Common\Stride.Importer.Common.csproj">
-      <Project>{806aa078-6070-4bb6-b05b-6ee6b21b1cde}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\..\core\Stride.Core.Design\Stride.Core.Design.csproj">
       <Project>{66581dad-70ad-4475-ae47-c6c0df1ec5e2}</Project>
       <Private>False</Private>
@@ -248,6 +245,9 @@
     <ProjectReference Include="..\Stride.Assimp\Stride.Assimp.csproj">
       <Project>{f61d86b5-7c3d-4441-957d-a0a6d2fa69ca}</Project>
       <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Stride.Importer.Common\Stride.Importer.Common.csproj">
+      <Project>{ccd6912e-4fa3-48ff-9370-687404b191a0}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(StrideSdkTargets)" />
