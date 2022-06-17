@@ -9,43 +9,40 @@ using Stride.Core.IO;
 using Stride.Animations;
 using Stride.Assets.Textures;
 using Stride.Importer.Common;
+using Stride.Importer.Gltf;
 
 namespace Stride.Assets.Models
 {
-    public class AssimpAssetImporter : ModelAssetImporter
+    public class GltfAssetImporter : ModelAssetImporter
     {
-        static AssimpAssetImporter()
-        {
-            NativeLibraryHelper.PreloadLibrary("assimp-vc140-mt", typeof(AssimpAssetImporter));
-        }
 
         // Supported file extensions for this importer
-        internal const string FileExtensions = ".dae;.3ds;.obj;.blend;.x;.md2;.md3;.dxf;.ply;.stl;.stp";
+        internal const string FileExtensions = ".gltf;.glb;";
 
         private static readonly Guid Uid = new Guid("30243FC0-CEC7-4433-977E-95DCA29D846E");
 
         public override Guid Id => Uid;
 
-        public override string Description => "Assimp importer used for creating entities, 3D Models or animations assets";
+        public override string Description => "Gltf importer used for creating entities, 3D Models or animations assets";
 
         public override string SupportedFileExtensions => FileExtensions;
 
         /// <inheritdoc/>
         public override EntityInfo GetEntityInfo(UFile localPath, Logger logger, AssetImporterParameters importParameters)
         {
-            var meshConverter = new Importer.AssimpNET.MeshConverter(logger);
+            var meshConverter = new GltfMeshConverter();
 
             if (!importParameters.InputParameters.TryGet(DeduplicateMaterialsKey, out var deduplicateMaterials))
                 deduplicateMaterials = true;    // Dedupe is the default value
 
-            var entityInfo = meshConverter.ExtractEntity(localPath.FullPath, null, importParameters.IsTypeSelectedForOutput(typeof(TextureAsset)), deduplicateMaterials);
+            var entityInfo = meshConverter.ExtractEntity(localPath.FullPath, null, importParameters.IsTypeSelectedForOutput(typeof(TextureAsset)));
             return entityInfo;
         }
 
         /// <inheritdoc/>
         public override void GetAnimationDuration(UFile localPath, Logger logger, AssetImporterParameters importParameters, out TimeSpan startTime, out TimeSpan endTime)
         {
-            var meshConverter = new Importer.AssimpNET.MeshConverter(logger);
+            var meshConverter = new GltfMeshConverter(logger);
             var sceneData = meshConverter.ConvertAnimation(localPath.FullPath, "");
 
             startTime = CompressedTimeSpan.MaxValue; // This will go down, so we start from positive infinity
