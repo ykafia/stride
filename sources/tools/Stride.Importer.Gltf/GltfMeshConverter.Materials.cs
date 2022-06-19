@@ -1,0 +1,132 @@
+using System;
+using System.Linq;
+using Stride.Core.Diagnostics;
+using Stride.Importer.Common;
+using SharpGLTF.Schema2;
+using System.Collections.Generic;
+using System.IO;
+using Stride.Assets.Materials;
+using Stride.Graphics;
+using Stride.Rendering.Materials;
+using Stride.Rendering.Materials.ComputeColors;
+using Stride.Core.Mathematics;
+using Stride.Core.Serialization;
+using Stride.Core.Assets;
+
+namespace Stride.Importer.Gltf;
+
+public partial class GltfMeshConverter
+{
+
+    public static ComputeTextureScalar GenerateTextureScalar(string sourceTextureFile, TextureCoordinate textureUVSetIndex, Vector2 textureUVscaling, TextureAddressMode addressModeU = TextureAddressMode.Wrap, TextureAddressMode addressModeV = TextureAddressMode.Wrap, string vfsOutputPath = "")
+    {
+        var textureFileName = Path.GetFileNameWithoutExtension(sourceTextureFile);
+
+        var uvScaling = textureUVscaling;
+        var textureName = textureFileName;
+
+        var texture = AttachedReferenceManager.CreateProxyObject<Graphics.Texture>(AssetId.Empty, textureName);
+
+        var currentTexture =
+            new ComputeTextureScalar(texture, textureUVSetIndex, uvScaling, Vector2.Zero)
+            {
+                AddressModeU = addressModeU,
+                AddressModeV = addressModeV
+            };
+
+        return currentTexture;
+    }
+
+    public static ComputeTextureColor GenerateTextureColor(string sourceTextureFile, TextureCoordinate textureUVSetIndex, Vector2 textureUVscaling, TextureAddressMode addressModeU = TextureAddressMode.Wrap, TextureAddressMode addressModeV = TextureAddressMode.Wrap, string vfsOutputPath = "")
+    {
+        var textureFileName = Path.GetFileNameWithoutExtension(sourceTextureFile);
+
+        var uvScaling = textureUVscaling;
+        var textureName = textureFileName;
+
+        var texture = AttachedReferenceManager.CreateProxyObject<Graphics.Texture>(AssetId.Empty, textureName);
+
+
+        var currentTexture =
+            new ComputeTextureColor(texture, textureUVSetIndex, uvScaling, Vector2.Zero)
+            {
+                AddressModeU = addressModeU,
+                AddressModeV = addressModeV
+            };
+
+        return currentTexture;
+    }
+    public static Dictionary<string, MaterialAsset> ExtractMaterials(ModelRoot root, string sourcePath, List<string> textures)
+    {
+        var materials = new Dictionary<string, MaterialAsset>();
+        foreach(var mat in root.LogicalMaterials)
+        {
+            var material = new MaterialAsset
+            {
+                Attributes = new MaterialAttributes()
+            };
+            foreach (var chan in mat.Channels)
+            {
+
+                if (chan.Texture != null && !chan.HasDefaultContent)
+                {
+
+                    var gltfImg = chan.Texture.PrimaryImage;
+                    var imgPath = gltfImg.Content.SourcePath ?? textures.First(x => Path.GetFileNameWithoutExtension(x) == gltfImg.LogicalIndex.ToString());
+
+                    switch (chan.Key)
+                    {
+                        case "BaseColor":
+                            material.Attributes.Diffuse = new MaterialDiffuseMapFeature(GenerateTextureColor(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
+                            material.Attributes.DiffuseModel = new MaterialDiffuseLambertModelFeature();
+                            break;
+                        case "MetallicRoughness":
+                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(GenerateTextureScalar(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
+                            break;
+                        case "Normal":
+                            material.Attributes.Surface = new MaterialNormalMapFeature(GenerateTextureColor(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
+                            break;
+                        case "Occlusion":
+                            material.Attributes.Occlusion = new MaterialOcclusionMapFeature();
+                            break;
+                        case "Emissive":
+                            material.Attributes.Emissive = new MaterialEmissiveMapFeature(GenerateTextureColor(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
+                            break;
+                    }
+                }
+                else if (chan.Texture == null && !chan.HasDefaultContent)
+                {
+                    var vt = new ComputeColor(chan.Parameters.ToColor());
+                    var x = new ComputeFloat(chan.Parameters.ToFloat());
+
+                    switch (chan.Key)
+                    {
+                        case "BaseColor":
+                            material.Attributes.Diffuse = new MaterialDiffuseMapFeature(vt);
+                            material.Attributes.DiffuseModel = new MaterialDiffuseLambertModelFeature();
+                            //material.Attributes.Transparency = new MaterialTransparencyBlendFeature();
+                            break;
+                        case "MetallicRoughness":
+                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(x) { Invert = true };
+                            break;
+                        case "Normal":
+                            material.Attributes.Surface = new MaterialNormalMapFeature(vt) { IsXYNormal = true };
+                            break;
+                        case "Occlusion":
+                            material.Attributes.Occlusion = new MaterialOcclusionMapFeature() { CavityMap = vt as IComputeScalar };
+                            break;
+                        case "Emissive":
+                            material.Attributes.Emissive = new MaterialEmissiveMapFeature(vt);
+                            break;
+                    }
+                }
+
+            }
+            material.Attributes.CullMode = CullMode.Back;
+            var materialName = Path.GetFileNameWithoutExtension(sourcePath) + "_" + (mat.Name ?? "Material") + "_" + mat.LogicalIndex;
+
+            materials.TryAdd(materialName, material);
+        }
+        return materials;
+    }
+}
