@@ -65,17 +65,34 @@ public partial class GltfMeshConverter
         }
         return result;
     }
+    public List<MeshParameters> ExtractMeshParameters(ModelRoot root, string fullPath)
+    {
+        return root.LogicalMeshes.First().Primitives.Select(
+                (x, i) =>
+                new MeshParameters
+                {
+                    MeshName = x.LogicalParent.Name != null ? x.LogicalParent.Name + x.LogicalIndex : Path.GetFileNameWithoutExtension(fullPath) + "_Mesh_" + i,
+                    MaterialName = x.Material?.Name
+                }
+            ).ToList();
+    }
 
     public EntityInfo ExtractEntity(string fullPath, string outputFileName, bool extractTextureDependencies)
     {
         var fileName = Path.GetFileName(fullPath);
         var model = LoadGltf(fullPath);
         var textures = ExtractTextureDependencies(model, fullPath);
+        var animationNodes = ExtractAnimationNodes(model);
+        var materials = ExtractMaterials(model, fullPath, textures);
+        var meshes = ExtractMeshParameters(model, fullPath);
+
         return new EntityInfo
         {
             TextureDependencies = textures,
-            AnimationNodes = ExtractAnimationNodes(model),
-            Materials = ExtractMaterials(model,fullPath,textures)
+            AnimationNodes = animationNodes,
+            Materials = materials,
+            Models = meshes,
+            Nodes = null
         };
     }
 }

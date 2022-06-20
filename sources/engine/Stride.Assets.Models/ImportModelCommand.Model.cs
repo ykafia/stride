@@ -102,8 +102,9 @@ namespace Stride.Assets.Models
             {
                 skeleton = null;
             }
-
-            var skeletonMapping = new SkeletonMapping(skeleton, modelSkeleton);
+            SkeletonMapping skeletonMapping = null;
+            if (modelSkeleton != null)
+                skeletonMapping = new SkeletonMapping(skeleton, modelSkeleton);
 
             // Refresh skeleton updater with model skeleton
             var hierarchyUpdater = new SkeletonUpdater(modelSkeleton);
@@ -123,70 +124,73 @@ namespace Stride.Assets.Models
                 }
 
                 var skinning = mesh.Skinning;
-                if (skinning != null)
+                if (skeletonMapping != null)
                 {
-                    // Update node mapping
-                    // Note: we only remap skinning matrices, but we could directly remap skinning bones instead
-                    for (int i = 0; i < skinning.Bones.Length; ++i)
+                    if (skinning != null)
                     {
-                        var linkNodeIndex = skinning.Bones[i].NodeIndex;
-                        var newLinkNodeIndex = skeletonMapping.SourceToSource[linkNodeIndex];
-
-                        var nodeIndex = mesh.NodeIndex;
-                        var newNodeIndex = skeletonMapping.SourceToSource[mesh.NodeIndex];
-
-                        skinning.Bones[i].NodeIndex = skeletonMapping.SourceToTarget[linkNodeIndex];
-
-                        // Adjust scale import
-                        if (!MathUtil.NearEqual(ScaleImport, 1.0f))
+                        // Update node mapping
+                        // Note: we only remap skinning matrices, but we could directly remap skinning bones instead
+                        for (int i = 0; i < skinning.Bones.Length; ++i)
                         {
-                            skinning.Bones[i].LinkToMeshMatrix.TranslationVector = skinning.Bones[i].LinkToMeshMatrix.TranslationVector * ScaleImport;
-                        }
+                            var linkNodeIndex = skinning.Bones[i].NodeIndex;
+                            var newLinkNodeIndex = skeletonMapping.SourceToSource[linkNodeIndex];
 
-                        // If it was remapped, we also need to update matrix
-                        if (nodeIndex != newNodeIndex)
-                        {
-                            // Update mesh part
-                            var transformMatrix = CombineMatricesFromNodeIndices(hierarchyUpdater.NodeTransformations, newNodeIndex, nodeIndex);
-                            transformMatrix.Invert();
-                            skinning.Bones[i].LinkToMeshMatrix = Matrix.Multiply(transformMatrix, skinning.Bones[i].LinkToMeshMatrix);
-                        }
+                            var nodeIndex = mesh.NodeIndex;
+                            var newNodeIndex = skeletonMapping.SourceToSource[mesh.NodeIndex];
 
-                        if (newLinkNodeIndex != linkNodeIndex)
-                        {
-                            // Update link part
-                            var transformLinkMatrix = CombineMatricesFromNodeIndices(hierarchyUpdater.NodeTransformations, newLinkNodeIndex, linkNodeIndex);
-                            skinning.Bones[i].LinkToMeshMatrix = Matrix.Multiply(skinning.Bones[i].LinkToMeshMatrix, transformLinkMatrix);
+                            skinning.Bones[i].NodeIndex = skeletonMapping.SourceToTarget[linkNodeIndex];
+
+                            // Adjust scale import
+                            if (!MathUtil.NearEqual(ScaleImport, 1.0f))
+                            {
+                                skinning.Bones[i].LinkToMeshMatrix.TranslationVector = skinning.Bones[i].LinkToMeshMatrix.TranslationVector * ScaleImport;
+                            }
+
+                            // If it was remapped, we also need to update matrix
+                            if (nodeIndex != newNodeIndex)
+                            {
+                                // Update mesh part
+                                var transformMatrix = CombineMatricesFromNodeIndices(hierarchyUpdater.NodeTransformations, newNodeIndex, nodeIndex);
+                                transformMatrix.Invert();
+                                skinning.Bones[i].LinkToMeshMatrix = Matrix.Multiply(transformMatrix, skinning.Bones[i].LinkToMeshMatrix);
+                            }
+
+                            if (newLinkNodeIndex != linkNodeIndex)
+                            {
+                                // Update link part
+                                var transformLinkMatrix = CombineMatricesFromNodeIndices(hierarchyUpdater.NodeTransformations, newLinkNodeIndex, linkNodeIndex);
+                                skinning.Bones[i].LinkToMeshMatrix = Matrix.Multiply(skinning.Bones[i].LinkToMeshMatrix, transformLinkMatrix);
+                            }
                         }
                     }
+
+                    // Check if there was a remap using model skeleton
+                    if (skeletonMapping.SourceToSource[mesh.NodeIndex] != mesh.NodeIndex)
+                    {
+                        // Transform vertices
+                        var transformationMatrix = CombineMatricesFromNodeIndices(hierarchyUpdater.NodeTransformations, skeletonMapping.SourceToSource[mesh.NodeIndex], mesh.NodeIndex);
+                        for (int vbIdx = 0; vbIdx < mesh.Draw.VertexBuffers.Length; vbIdx++)
+                        {
+                            mesh.Draw.VertexBuffers[vbIdx].TransformBuffer(ref transformationMatrix);
+                        }
+
+                        // Check if geometry is inverted, to know if we need to reverse winding order
+                        // TODO: What to do if there is no index buffer? We should create one... (not happening yet)
+                        if (mesh.Draw.IndexBuffer == null)
+                            throw new InvalidOperationException();
+
+                        Matrix rotation;
+                        Vector3 scale, translation;
+                        if (transformationMatrix.Decompose(out scale, out rotation, out translation)
+                            && scale.X * scale.Y * scale.Z < 0)
+                        {
+                            mesh.Draw.ReverseWindingOrder();
+                        }
+                    }
+
+                    // Update new node index using real asset skeleton
+                    mesh.NodeIndex = skeletonMapping.SourceToTarget[mesh.NodeIndex];
                 }
-
-                // Check if there was a remap using model skeleton
-                if (skeletonMapping.SourceToSource[mesh.NodeIndex] != mesh.NodeIndex)
-                {
-                    // Transform vertices
-                    var transformationMatrix = CombineMatricesFromNodeIndices(hierarchyUpdater.NodeTransformations, skeletonMapping.SourceToSource[mesh.NodeIndex], mesh.NodeIndex);
-                    for (int vbIdx = 0; vbIdx < mesh.Draw.VertexBuffers.Length; vbIdx++)
-                    {
-                        mesh.Draw.VertexBuffers[vbIdx].TransformBuffer(ref transformationMatrix);
-                    }
-
-                    // Check if geometry is inverted, to know if we need to reverse winding order
-                    // TODO: What to do if there is no index buffer? We should create one... (not happening yet)
-                    if (mesh.Draw.IndexBuffer == null)
-                        throw new InvalidOperationException();
-
-                    Matrix rotation;
-                    Vector3 scale, translation;
-                    if (transformationMatrix.Decompose(out scale, out rotation, out translation)
-                        && scale.X * scale.Y * scale.Z < 0)
-                    {
-                        mesh.Draw.ReverseWindingOrder();
-                    }
-                }
-
-                // Update new node index using real asset skeleton
-                mesh.NodeIndex = skeletonMapping.SourceToTarget[mesh.NodeIndex];
             }
 
             // Apply custom model modifiers

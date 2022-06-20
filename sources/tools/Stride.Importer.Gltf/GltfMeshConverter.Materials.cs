@@ -129,4 +129,78 @@ public partial class GltfMeshConverter
         }
         return materials;
     }
+
+    public static SortedList<int, MaterialAsset> ExtractMaterialsAsList(ModelRoot root, string sourcePath, List<string> textures)
+    {
+        var materials = new SortedList<int, MaterialAsset>();
+        foreach (var mat in root.LogicalMaterials)
+        {
+            var material = new MaterialAsset
+            {
+                Attributes = new MaterialAttributes()
+            };
+            foreach (var chan in mat.Channels)
+            {
+
+                if (chan.Texture != null && !chan.HasDefaultContent)
+                {
+
+                    var gltfImg = chan.Texture.PrimaryImage;
+                    var imgPath = gltfImg.Content.SourcePath ?? textures.First(x => Path.GetFileNameWithoutExtension(x) == gltfImg.LogicalIndex.ToString());
+
+                    switch (chan.Key)
+                    {
+                        case "BaseColor":
+                            material.Attributes.Diffuse = new MaterialDiffuseMapFeature(GenerateTextureColor(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
+                            material.Attributes.DiffuseModel = new MaterialDiffuseLambertModelFeature();
+                            break;
+                        case "MetallicRoughness":
+                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(GenerateTextureScalar(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
+                            break;
+                        case "Normal":
+                            material.Attributes.Surface = new MaterialNormalMapFeature(GenerateTextureColor(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
+                            break;
+                        case "Occlusion":
+                            material.Attributes.Occlusion = new MaterialOcclusionMapFeature();
+                            break;
+                        case "Emissive":
+                            material.Attributes.Emissive = new MaterialEmissiveMapFeature(GenerateTextureColor(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
+                            break;
+                    }
+                }
+                else if (chan.Texture == null && !chan.HasDefaultContent)
+                {
+                    var vt = new ComputeColor(chan.Parameters.ToColor());
+                    var x = new ComputeFloat(chan.Parameters.ToFloat());
+
+                    switch (chan.Key)
+                    {
+                        case "BaseColor":
+                            material.Attributes.Diffuse = new MaterialDiffuseMapFeature(vt);
+                            material.Attributes.DiffuseModel = new MaterialDiffuseLambertModelFeature();
+                            //material.Attributes.Transparency = new MaterialTransparencyBlendFeature();
+                            break;
+                        case "MetallicRoughness":
+                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(x) { Invert = true };
+                            break;
+                        case "Normal":
+                            material.Attributes.Surface = new MaterialNormalMapFeature(vt) { IsXYNormal = true };
+                            break;
+                        case "Occlusion":
+                            material.Attributes.Occlusion = new MaterialOcclusionMapFeature() { CavityMap = vt as IComputeScalar };
+                            break;
+                        case "Emissive":
+                            material.Attributes.Emissive = new MaterialEmissiveMapFeature(vt);
+                            break;
+                    }
+                }
+
+            }
+            material.Attributes.CullMode = CullMode.Back;
+            var materialKey = mat.LogicalIndex;
+
+            materials.TryAdd(materialKey, material);
+        }
+        return materials;
+    }
 }

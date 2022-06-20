@@ -98,12 +98,15 @@ namespace Stride.Assets.Models
         private void AdjustSkeleton(Skeleton skeleton)
         {
             // Translate node with parent 0 using PivotPosition
-            for (int i = 0; i < skeleton.Nodes.Length; ++i)
+            if (skeleton is not null)
             {
-                if (skeleton.Nodes[i].ParentIndex == 0)
-                    skeleton.Nodes[i].Transform.Position -= PivotPosition;
+                for (int i = 0; i < skeleton.Nodes.Length; ++i)
+                {
+                    if (skeleton.Nodes[i].ParentIndex == 0)
+                        skeleton.Nodes[i].Transform.Position -= PivotPosition;
 
-                skeleton.Nodes[i].Transform.Position *= ScaleImport;
+                    skeleton.Nodes[i].Transform.Position *= ScaleImport;
+                }
             }
         }
     }

@@ -67,7 +67,6 @@ namespace Stride.Rendering
                 nodeTransformations[index].RenderingEnabledRecursive = true;
                 UpdateLocalMatrix(ref nodeTransformations[index]);
             }
-
             nodeTransformations[0].Flags &= ~ModelNodeFlags.EnableTransform;
         }
 
