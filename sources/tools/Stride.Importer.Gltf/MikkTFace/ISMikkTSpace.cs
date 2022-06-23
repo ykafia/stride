@@ -13,14 +13,14 @@ namespace Stride.Importer.Common.MikkTFace
         /// Gets the number of faces
         /// </summary>
         /// <returns></returns>
-        int GetNumberOfFace();
+        int GetNumFaces();
         /// <summary>
         /// Gets number of vertices for one face
         /// </summary>
         /// <param name="context"></param>
         /// <param name="faceId"></param>
         /// <returns></returns>
-        int GetNumberOfVerticesFor(SMikkTSpaceContext context,int faceId);
+        int GetNumVerticesOfFace(int faceId);
 
         /// <summary>
         /// returns the position/normal/texcoord of the referenced face of vertex number iVert.

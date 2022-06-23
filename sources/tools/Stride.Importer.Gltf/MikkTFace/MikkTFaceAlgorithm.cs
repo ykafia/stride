@@ -7,6 +7,11 @@ using System.Threading.Tasks;
 
 namespace Stride.Importer.Common.MikkTFace;
 
+public class STmpVert
+{
+    public float[] Vert { get; set; }
+    public int Index {get;set;}
+}
 public class SSubGroup
 {
     public int IdFace { get; set; }
