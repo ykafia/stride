@@ -16,6 +16,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
         public static int QUAD_ONE_DEGEN_TRI = 2;
         public static int GROUP_WITH_ANY = 4;
         public static int ORIENT_PRESERVING = 8;
+        public static int INTERNAL_RND_SORT_SEED = 39871946;
         static int iCells = 2048;
 
         public VertexBufferColumns Columns { get; set; }
@@ -48,7 +49,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             (var iF, var iI) = IndexToData(index);
             return GetNormal(iF, iI);
         }
-        public void SetTSpace(float[] fvTangent, float[] fvBiTangent, float magS, float magT, bool IsOrientationPreserving, int idFace, int idVert)
+        public (Vector3, Vector3) SetTSpace(float magS, float magT, bool IsOrientationPreserving, int idFace, int idVert)
         {
             throw new NotImplementedException();
         }

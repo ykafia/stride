@@ -63,7 +63,7 @@ namespace Stride.Importer.Common.MikkTFace
         /// <param name="idFace"></param>
         /// <param name="idVert"></param>
         /// <returns></returns>
-        Vector3 SetTSpaceBasic(float fSign, int idFace, int idVert);
+        public Vector3 SetTSpaceBasic(float fSign, int idFace, int idVert);
 
 
         /// <summary>
@@ -86,6 +86,6 @@ namespace Stride.Importer.Common.MikkTFace
         /// <param name="IsOrientationPreserving"></param>
         /// <param name="idFace"></param>
         /// <param name="idVert"></param>
-        void SetTSpace(float[] fvTangent, float[] fvBiTangent, float magS, float magT, bool IsOrientationPreserving, int idFace, int idVert);
+        public (Vector3, Vector3) SetTSpace(float magS, float magT, bool IsOrientationPreserving, int idFace, int idVert);
     }
 }

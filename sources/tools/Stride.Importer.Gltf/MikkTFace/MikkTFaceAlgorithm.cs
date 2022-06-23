@@ -30,8 +30,8 @@ public class STriInfo
     public int[] FaceNeighbors = new int[3];
     public SGroup[] AssignedGroup = new SGroup[3];
     // normalized first order face derivatives
-    public Vector3 VOs { get; set; }
-    public Vector3 OvOt { get; set; }
+    public Vector3 VOs;
+    public Vector3 VOt;
     public float FMagS { get; set; }
     public float FMagT { get; set; } // original magnitudes
     // determines if the current and the next triangle are a quad.
@@ -44,10 +44,10 @@ public class STriInfo
 public class STSpace
 {
 
-    public Vector3 VOs {get;set;}
-    public float FMagS {get;set;}
-    public Vector3 VOt {get;set;}
-    public float FMagT {get;set;}
+    public Vector3 VOs;
+    public float FMagS;
+    public Vector3 VOt;
+    public float FMagT;
     public int ICounter {get;set;}   // this is to average back into quads.
     public bool Orient { get; set; }
 }
