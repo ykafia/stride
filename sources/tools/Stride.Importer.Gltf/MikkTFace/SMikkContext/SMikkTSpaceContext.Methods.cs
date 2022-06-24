@@ -12,202 +12,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
     public partial class SMikkTSpaceContext : ISMikkTSpace
     {
 
-        public bool GenTangSpaceDefault()
-        {
-            return GenTangSpace(180.0f);
-        }
-
-        public bool GenTangSpace(float fAngularThreshold)
-        {
-            // count nr_triangles
-            int[][] piTriListIn = null;
-            int[][] piGroupTrianglesBuffer = null;
-            STriInfo[] pTriInfos = null;
-            SGroup[] pGroups = null;
-            STSpace[] psTspace = null;
-            int iNrTrianglesIn = 0, f = 0, t = 0, i = 0;
-            int iNrTSPaces = 0, iTotTris = 0, iDegenTriangles = 0, iNrMaxGroups = 0;
-            int iNrActiveGroups = 0, index = 0;
-            var iNrFaces = GetNumFaces();
-            var bRes = false;
-            var fThresCos = (float)Math.Cos(fAngularThreshold * (float)Math.PI / 180.0f);
-
-            // count triangles on supported faces
-            for (f = 0; f < iNrFaces; f++)
-            {
-                var verts = GetNumVerticesOfFace(f);
-                if (verts == 3) ++iNrTrianglesIn;
-                else if (verts == 4) iNrTrianglesIn += 2;
-            }
-            if (iNrTrianglesIn <= 0) return false;
-
-            // allocate memory for an index list
-            piTriListIn = new int[iNrTrianglesIn][].Select(x => new int[3]).ToArray(); //(int*)malloc(sizeof(int) * 3 * iNrTrianglesIn);
-            pTriInfos = new STriInfo[iNrTrianglesIn];//(STriInfo*)malloc(sizeof(STriInfo) * iNrTrianglesIn);
-            if (piTriListIn == null || pTriInfos == null)
-            {
-                if (piTriListIn != null) piTriListIn = null;
-                if (pTriInfos != null) pTriInfos = null;
-                return false;
-            }
-
-            // make an initial triangle --> face index list
-            iNrTSPaces = GenerateInitialVerticesIndexList(pTriInfos, ref piTriListIn, iNrTrianglesIn);
-
-            // make a welded index list of identical positions and attributes (pos, norm, texc)
-            //printf("gen welded index list begin\n");
-            GenerateSharedVerticesIndexList(ref piTriListIn, iNrTrianglesIn);
-            //printf("gen welded index list end\n");
-
-            // Mark all degenerate triangles
-            iTotTris = iNrTrianglesIn;
-            iDegenTriangles = 0;
-            for (t = 0; t < iTotTris; t++)
-            {
-                var i0 = piTriListIn[t * 3 + 0];
-                var i1 = piTriListIn[t * 3 + 1];
-                var i2 = piTriListIn[t * 3 + 2];
-                var p0 = GetPosition(i0);
-                var p1 = GetPosition(i1);
-                var p2 = GetPosition(i2);
-                if (p0 == p1 || p0 == p2 || p1 == p2)  // degenerate
-                {
-                    pTriInfos[t].IFlag |= MARK_DEGENERATE;
-                    ++iDegenTriangles;
-                }
-            }
-            iNrTrianglesIn = iTotTris - iDegenTriangles;
-
-            // mark all triangle pairs that belong to a quad with only one
-            // good triangle. These need special treatment in DegenEpilogue().
-            // Additionally, move all good triangles to the start of
-            // pTriInfos[] and piTriListIn[] without changing order and
-            // put the degenerate triangles last.
-            DegenPrologue(ref pTriInfos, ref piTriListIn, iNrTrianglesIn, iTotTris);
-
-
-            // evaluate triangle level attributes and neighbor list
-            //printf("gen neighbors list begin\n");
-            InitTriInfo(ref pTriInfos, ref piTriListIn, iNrTrianglesIn);
-            //printf("gen neighbors list end\n");
-
-
-            // based on the 4 rules, identify groups based on connectivity
-            iNrMaxGroups = iNrTrianglesIn * 3;
-            pGroups = new SGroup[iNrMaxGroups]; // (SGroup*)malloc(sizeof(SGroup) * iNrMaxGroups);
-            piGroupTrianglesBuffer = new int[iNrTrianglesIn][].Select(x => new int[3]).ToArray(); //(int*)malloc(sizeof(int) * iNrTrianglesIn * 3);
-            if (pGroups == null || piGroupTrianglesBuffer == null)
-            {
-                if (pGroups != null) pGroups = null;
-                if (piGroupTrianglesBuffer != null) piGroupTrianglesBuffer = null;
-                piTriListIn = null;
-                pTriInfos = null;
-                return false;
-            }
-            //printf("gen 4rule groups begin\n");
-            iNrActiveGroups =
-                Build4RuleGroups(pTriInfos, pGroups, piGroupTrianglesBuffer, piTriListIn, iNrTrianglesIn);
-            //printf("gen 4rule groups end\n");
-
-            //
-
-            psTspace = new STSpace[iNrTSPaces];// (STSpace*)malloc(sizeof(STSpace) * iNrTSPaces);
-            if (psTspace == null)
-            {
-                piTriListIn = null;
-                pTriInfos = null;
-                pGroups = null;
-                piGroupTrianglesBuffer = null;
-                return false;
-            }
-            for (t = 0; t < iNrTSPaces; t++)
-            {
-                psTspace[t].VOs.X = 1.0f; psTspace[t].VOs.Y = 0.0f; psTspace[t].VOs.z = 0.0f; psTspace[t].FMagS = 1.0f;
-                psTspace[t].VOt.X = 0.0f; psTspace[t].VOt.Y = 1.0f; psTspace[t].VOt.z = 0.0f; psTspace[t].FMagT = 1.0f;
-            }
-
-            // make tspaces, each group is split up into subgroups if necessary
-            // based on fAngularThreshold. Finally a tangent space is made for
-            // every resulting subgroup
-            //printf("gen tspaces begin\n");
-            bRes = GenerateTSpaces(psTspace, pTriInfos, pGroups, iNrActiveGroups, piTriListIn, fThresCos);
-            //printf("gen tspaces end\n");
-
-            // clean up
-            pGroups = null;
-            piGroupTrianglesBuffer = null;
-
-            if (!bRes)  // if an allocation in GenerateTSpaces() failed
-            {
-                // clean up and return false
-                pTriInfos = null;
-                piTriListIn = null;
-                psTspace = null;
-
-                return false;
-            }
-
-
-            // degenerate quads with one good triangle will be fixed by copying a space from
-            // the good triangle to the coinciding vertex.
-            // all other degenerate triangles will just copy a space from any good triangle
-            // with the same welded index in piTriListIn[].
-            DegenEpilogue(psTspace, pTriInfos, piTriListIn, iNrTrianglesIn, iTotTris);
-
-            pTriInfos = null;
-            piTriListIn = null;
-
-
-            index = 0;
-            for (f = 0; f < iNrFaces; f++)
-            {
-                int verts = GetNumVerticesOfFace(f);
-                if (verts != 3 && verts != 4) continue;
-
-
-                // I've decided to let degenerate triangles and group-with-anythings
-                // vary between left/right hand coordinate systems at the vertices.
-                // All healthy triangles on the other hand are built to always be either or.
-
-                /*// force the coordinate system orientation to be uniform for every face.
-                // (this is already the case for good triangles but not for
-                // degenerate ones and those with bGroupWithAnything==true)
-                bool bOrient = psTspace[index].bOrient;
-                if (psTspace[index].iCounter == 0)	// tspace was not derived from a group
-                {
-                    // look for a space created in GenerateTSpaces() by iCounter>0
-                    bool bNotFound = true;
-                    int i=1;
-                    while (i<verts && bNotFound)
-                    {
-                        if (psTspace[index+i].iCounter > 0) bNotFound=false;
-                        else ++i;
-                    }
-                    if (!bNotFound) bOrient = psTspace[index+i].bOrient;
-                }*/
-
-                // set data
-                for (i = 0; i < verts; i++)
-                {
-                    STSpace pTSpace = psTspace[index];
-                    Vector3 tang = new(pTSpace.VOs.X, pTSpace.VOs.Y, pTSpace.VOs.Z);
-                    Vector3 bitang = new(pTSpace.VOt.X, pTSpace.VOt.Y, pTSpace.VOt.Z); ;
-                    if (SetTSpace != null)
-                        (tang, bitang) = SetTSpace(pTSpace.FMagS, pTSpace.FMagT, pTSpace.Orient, f, i);
-                    if (SetTSpaceBasic != null)
-                        tang = SetTSpaceBasic(pTSpace.Orient == true ? 1 : -1, f, i);
-
-                    ++index;
-                }
-            }
-
-            psTspace = null;
-
-
-            return true;
-        }
-
-        public int GenerateInitialVerticesIndexList(STriInfo[] pTriInfos, ref int[][] piTriList_out, int iNrTrianglesIn)
+        public int GenerateInitialVerticesIndexList(List<STriInfo> pTriInfos, ref int[][] piTriList_out, int iNrTrianglesIn)
         {
 
             int iTSpacesOffs = 0, f = 0, t = 0;
@@ -270,7 +75,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                         if (bQuadDiagIs_02)
                         {
                             {
-                                uint[] pVerts_A = pTriInfos[iDstTriIndex].vert_num;
+                                int[] pVerts_A = pTriInfos[iDstTriIndex].vert_num;
                                 pVerts_A[0] = 0; pVerts_A[1] = 1; pVerts_A[2] = 2;
                             }
                             piTriList_out[iDstTriIndex][0] = i0;
@@ -278,7 +83,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                             piTriList_out[iDstTriIndex][2] = i2;
                             ++iDstTriIndex; // next
                             {
-                                uint[] pVerts_B = pTriInfos[iDstTriIndex].vert_num;
+                                int[] pVerts_B = pTriInfos[iDstTriIndex].vert_num;
                                 pVerts_B[0] = 0; pVerts_B[1] = 2; pVerts_B[2] = 3;
                             }
                             piTriList_out[iDstTriIndex][0] = i0;
@@ -289,7 +94,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                         else
                         {
                             {
-                                uint[] pVerts_A = pTriInfos[iDstTriIndex].vert_num;
+                                int[] pVerts_A = pTriInfos[iDstTriIndex].vert_num;
                                 pVerts_A[0] = 0; pVerts_A[1] = 1; pVerts_A[2] = 3;
                             }
                             piTriList_out[iDstTriIndex][0] = i0;
@@ -297,7 +102,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                             piTriList_out[iDstTriIndex][2] = i3;
                             ++iDstTriIndex; // next
                             {
-                                uint[] pVerts_B = pTriInfos[iDstTriIndex].vert_num;
+                                int[] pVerts_B = pTriInfos[iDstTriIndex].vert_num;
                                 pVerts_B[0] = 1; pVerts_B[1] = 2; pVerts_B[2] = 3;
                             }
                             piTriList_out[iDstTriIndex][0] = i1;
@@ -313,11 +118,305 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             }
 
             for (t = 0; t < iNrTrianglesIn; t++)
-                pTriInfos[t].IFlag = 0;
+                pTriInfos[t].Flag = 0;
 
             // return total amount of tspaces
             return iTSpacesOffs;
         }
-        
+
+        public bool GenerateTSpaces(List<STSpace> psTspace, List<STriInfo> pTriInfos, List<SGroup> pGroups,
+                             int iNrActiveGroups, int[][] piTriListIn, float fThresCos)
+        {
+
+            STSpace[] pSubGroupTspace = null;
+            SSubGroup[] pUniSubGroups = null;
+            int[] pTmpMembers = null;
+            int iMaxNrFaces = 0, iUniqueTspaces = 0, g = 0, i = 0;
+            for (g = 0; g < iNrActiveGroups; g++)
+                if (iMaxNrFaces < pGroups[g].NumberFaces)
+
+                    iMaxNrFaces = pGroups[g].NumberFaces;
+
+            if (iMaxNrFaces == 0) return true;
+
+            // make initial allocations
+            pSubGroupTspace = new STSpace[iMaxNrFaces];// (STSpace*)malloc(sizeof(STSpace) * iMaxNrFaces);
+            pUniSubGroups = new SSubGroup[iMaxNrFaces];// (SSubGroup*)malloc(sizeof(SSubGroup) * iMaxNrFaces);
+            pTmpMembers = new int[iMaxNrFaces];// (int*)malloc(sizeof(int) * iMaxNrFaces);
+            if (pSubGroupTspace == null || pUniSubGroups == null || pTmpMembers == null)
+            {
+                //if (pSubGroupTspace != null) free(pSubGroupTspace);
+                //if (pUniSubGroups != null) free(pUniSubGroups);
+                //if (pTmpMembers != null) free(pTmpMembers);
+                return false;
+            }
+
+
+            iUniqueTspaces = 0;
+            for (g = 0; g < iNrActiveGroups; g++)
+            {
+                SGroup pGroup = pGroups[g];
+                int iUniqueSubGroups = 0, s = 0;
+
+                for (i = 0; i < pGroup.NumberFaces; i++)  // triangles
+                {
+                    int f = pGroup.Indices[i];  // triangle number
+                    int index = -1, iVertIndex = -1, iOF_1 = -1, iMembers = 0, j = 0, l = 0;
+                    SSubGroup tmp_group;
+                    bool bFound;
+                    Vector3 n, vOs, vOt;
+                    if (pTriInfos[f].AssignedGroup[0] == pGroup) index = 0;
+                    else if (pTriInfos[f].AssignedGroup[1] == pGroup) index = 1;
+                    else if (pTriInfos[f].AssignedGroup[2] == pGroup) index = 2;
+                    //assert(index >= 0 && index < 3);
+
+                    iVertIndex = piTriListIn[f][index];
+                    //assert(iVertIndex == pGroup.iVertexRepresentitive);
+
+                    // is normalized already
+                    n = GetNormal(iVertIndex);
+
+                    // project
+                    vOs = pTriInfos[f].VOs - Vector3.Dot(n, pTriInfos[f].VOs) * n;
+                    vOt = pTriInfos[f].VOt - Vector3.Dot(n, pTriInfos[f].VOt) * n;
+                    if (vOs != Vector3.Zero) vOs = Vector3.Normalize(vOs);
+                    if (vOt != Vector3.Zero) vOt = Vector3.Normalize(vOt);
+
+                    // original face number
+                    iOF_1 = pTriInfos[f].IOrgFaceNumber;
+
+                    iMembers = 0;
+                    for (j = 0; j < pGroup.NumberFaces; j++)
+                    {
+                        int t = pGroup.Indices[j];  // triangle number
+                        int iOF_2 = pTriInfos[t].IOrgFaceNumber;
+
+                        // project
+                        Vector3 vOs2 = (pTriInfos[t].VOs - (Vector3.Dot(n, pTriInfos[t].VOs) * n));
+                        Vector3 vOt2 = (pTriInfos[t].VOt - (Vector3.Dot(n, pTriInfos[t].VOt) * n));
+                        if (vOs2 != Vector3.Zero) vOs2 = Vector3.Normalize(vOs2);
+                        if (vOt2 != Vector3.Zero) vOt2 = Vector3.Normalize(vOt2);
+
+                        {
+                            bool bAny = ((pTriInfos[f].Flag | pTriInfos[t].Flag) & GROUP_WITH_ANY) != 0;
+                            // make sure triangles which belong to the same quad are joined.
+                            bool bSameOrgFace = iOF_1 == iOF_2;
+
+                            float fCosS = Vector3.Dot(vOs, vOs2);
+                            float fCosT = Vector3.Dot(vOt, vOt2);
+
+                            //assert(f! = t || bSameOrgFace); // sanity check
+                            if (bAny || bSameOrgFace || (fCosS > fThresCos && fCosT > fThresCos))
+                                pTmpMembers[iMembers++] = t;
+                        }
+                    }
+
+                    // sort pTmpMembers
+                    tmp_group.NumberFaces = iMembers;
+                    tmp_group.TriMembers = pTmpMembers;
+                    Array.Sort(pTmpMembers);
+                    // look for an existing match
+                    bFound = false;
+                    l = 0;
+                    while (l < iUniqueSubGroups && !bFound)
+                    {
+                        bFound = CompareSubGroups(tmp_group, pUniSubGroups[l]);
+                        if (!bFound) ++l;
+                    }
+
+                    // assign tangent space index
+                    //assert(bFound || l == iUniqueSubGroups);
+                    //piTempTangIndices[f*3+index] = iUniqueTspaces+l;
+
+                    // if no match was found we allocate a new subgroup
+                    if (!bFound)
+                    {
+                        // insert new subgroup
+                        int[] pIndices = new int[iMembers];// (int*)malloc(sizeof(int) * iMembers);
+                        if (pIndices == null)
+                        {
+                            // clean up and return false
+                            //for (s = 0; s < iUniqueSubGroups; s++)
+                            //    free(pUniSubGroups[s].pTriMembers);
+                            //free(pUniSubGroups);
+                            //free(pTmpMembers);
+                            //free(pSubGroupTspace);
+                            return false;
+                        }
+                        pUniSubGroups[iUniqueSubGroups].NumberFaces = iMembers;
+                        pUniSubGroups[iUniqueSubGroups].TriMembers = pIndices;
+                        Array.Copy(tmp_group.TriMembers, pIndices, tmp_group.TriMembers.Length);
+                        pSubGroupTspace[iUniqueSubGroups] =
+                            EvalTspace(tmp_group.TriMembers, iMembers, piTriListIn, pTriInfos, pGroup.VertexRepresentativeId);
+                        ++iUniqueSubGroups;
+                    }
+
+                    // output tspace
+                    {
+                        int iOffs = pTriInfos[f].ITSpacesOffs;
+                        int iVert = pTriInfos[f].vert_num[index];
+                        STSpace pTS_out = psTspace[iOffs + iVert];
+                        //assert(pTS_out.iCounter < 2);
+                        //assert(((pTriInfos[f].iFlag & ORIENT_PRESERVING) != 0) == pGroup.bOrientPreservering);
+                        if (pTS_out.ICounter == 1)
+                        {
+                            pTS_out = AvgTSpace(pTS_out, &pSubGroupTspace[l]);
+                            pTS_out.ICounter = 2;  // update counter
+                            pTS_out.Orient = pGroup.OrientPreservering;
+                        }
+                        else
+                        {
+                            //assert(pTS_out.iCounter == 0);
+                            pTS_out = pSubGroupTspace[l];
+                            pTS_out.ICounter = 1;  // update counter
+                            pTS_out.Orient = pGroup.OrientPreservering;
+                        }
+                    }
+                }
+
+                // clean up and offset iUniqueTspaces
+                //for (s = 0; s < iUniqueSubGroups; s++)
+                //    free(pUniSubGroups[s].TriMembers);
+                iUniqueTspaces += iUniqueSubGroups;
+            }
+
+            // clean up
+
+            return true;
+        }
+        public bool AssignRecur(int[][] piTriListIn, List<STriInfo> psTriInfos, int iMyTriIndex, SGroup pGroup)
+        {
+            STriInfo pMyTriInfo = psTriInfos[iMyTriIndex];
+
+            // track down vertex
+            int iVertRep = pGroup.VertexRepresentativeId;
+            int[] pVerts = piTriListIn[3 * iMyTriIndex + 0];
+            int i = -1;
+            if (pVerts[0] == iVertRep) i = 0;
+            else if (pVerts[1] == iVertRep) i = 1;
+            else if (pVerts[2] == iVertRep) i = 2;
+            //assert(i >= 0 && i < 3);
+
+            // early out
+            if (pMyTriInfo.AssignedGroup[i] == pGroup) return true;
+            else if (pMyTriInfo.AssignedGroup[i] != null) return false;
+            if ((pMyTriInfo.Flag & GROUP_WITH_ANY) != 0)
+            {
+                // first to group with a group-with-anything triangle
+                // determines it's orientation.
+                // This is the only existing order dependency in the code!!
+                if (pMyTriInfo.AssignedGroup[0] == null &&
+                    pMyTriInfo.AssignedGroup[1] == null &&
+                    pMyTriInfo.AssignedGroup[2] == null)
+                {
+                    pMyTriInfo.Flag &= (~ORIENT_PRESERVING);
+                    pMyTriInfo.Flag |= (pGroup.OrientPreservering ? ORIENT_PRESERVING : 0);
+                }
+            }
+            {
+                bool bOrient = (pMyTriInfo.Flag & ORIENT_PRESERVING) != 0 ? true : false;
+                if (bOrient != pGroup.OrientPreservering) return false;
+            }
+
+            AddTriToGroup(pGroup, iMyTriIndex);
+            pMyTriInfo.AssignedGroup[i] = pGroup;
+
+            {
+                int neigh_indexL = pMyTriInfo.FaceNeighbors[i];
+                int neigh_indexR = pMyTriInfo.FaceNeighbors[i > 0 ? (i - 1) : 2];
+                if (neigh_indexL >= 0)
+                    AssignRecur(piTriListIn, psTriInfos, neigh_indexL, pGroup);
+                if (neigh_indexR >= 0)
+                    AssignRecur(piTriListIn, psTriInfos, neigh_indexR, pGroup);
+            }
+            return true;
+        }
+        public bool CompareSubGroups(SSubGroup pg1, SSubGroup pg2)
+        {
+
+            bool bStillSame = true;
+            int i = 0;
+            if (pg1.NumberFaces != pg2.NumberFaces) return false;
+            while (i < pg1.NumberFaces && bStillSame)
+            {
+                bStillSame = pg1.TriMembers[i] == pg2.TriMembers[i] ? true : false;
+                if (bStillSame) ++i;
+            }
+            return bStillSame;
+        }
+
+        public STSpace EvalTspace(int[] face_indices, int iFaces, int[][] piTriListIn, List<STriInfo> pTriInfos, int iVertexRepresentitive)
+        {
+
+            STSpace res = new();
+            float fAngleSum = 0;
+            int face = 0;
+            res.VOs.X = 0.0f; res.VOs.Y = 0.0f; res.VOs.Z = 0.0f;
+            res.VOt.X = 0.0f; res.VOt.Y = 0.0f; res.VOt.Z = 0.0f;
+            res.FMagS = 0; res.FMagT = 0;
+
+            for (face = 0; face < iFaces; face++)
+            {
+                int f = face_indices[face];
+
+                // only valid triangles get to add their contribution
+                if ((pTriInfos[f].Flag & GROUP_WITH_ANY) == 0)
+                {
+                    Vector3 n, vOs, vOt, p0, p1, p2, v1, v2;
+                    float fCos, fAngle, fMagS, fMagT;
+                    int i = -1, index = -1, i0 = -1, i1 = -1, i2 = -1;
+                    if (piTriListIn[f][0] == iVertexRepresentitive) i = 0;
+                    else if (piTriListIn[f][1] == iVertexRepresentitive) i = 1;
+                    else if (piTriListIn[f][2] == iVertexRepresentitive) i = 2;
+                    //assert(i >= 0 && i < 3);
+
+                    // project
+                    index = piTriListIn[f][i];
+                    n = GetNormal(index);
+                    vOs = (pTriInfos[f].VOs - (Vector3.Dot(n, pTriInfos[f].VOs) * n));
+                    vOt = (pTriInfos[f].VOt - (Vector3.Dot(n, pTriInfos[f].VOt) * n));
+                    if (vOs != Vector3.Zero) vOs = Vector3.Normalize(vOs);
+                    if (vOt != Vector3.Zero) vOt = Vector3.Normalize(vOt);
+
+                    i2 = piTriListIn[f][(i < 2 ? (i + 1) : 0)];
+                    i1 = piTriListIn[f][i];
+                    i0 = piTriListIn[f][(i > 0 ? (i - 1) : 2)];
+
+                    p0 = GetPosition(i0);
+                    p1 = GetPosition(i1);
+                    p2 = GetPosition(i2);
+                    v1 = p0 -p1;
+                    v2 = p2 -p1;
+
+                    // project
+                    v1 -= (Vector3.Dot(n, v1) *n); if (v1 != Vector3.Zero) v1 = Vector3.Normalize(v1);
+                    v2 -= (Vector3.Dot(n, v2) *n); if (v2 != Vector3.Zero) v2 = Vector3.Normalize(v2);
+
+                    // weight contribution by the angle
+                    // between the two edge vectors
+                    fCos = Vector3.Dot(v1, v2); fCos = fCos > 1 ? 1 : (fCos < (-1) ? (-1) : fCos);
+                    fAngle = (float)Math.Acos(fCos);
+                    fMagS = pTriInfos[f].FMagS;
+                    fMagT = pTriInfos[f].FMagT;
+
+                    res.VOs = (res.vOs+ (fAngle * vOs));
+                    res.VOt = (res.vOt+ (fAngle * vOt));
+                    res.FMagS += (fAngle * fMagS);
+                    res.FMagT += (fAngle * fMagT);
+                    fAngleSum += fAngle;
+                }
+            }
+
+            // normalize
+            if (res.VOs != Vector3.Zero) res.VOs = Vector3.Normalize(res.VOs);
+            if (res.VOt != Vector3.Zero) res.VOt = Vector3.Normalize(res.VOt);
+            if (fAngleSum > 0)
+            {
+                res.FMagS /= fAngleSum;
+                res.FMagT /= fAngleSum;
+            }
+
+            return res;
+        }
     }
 }

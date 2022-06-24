@@ -7,20 +7,46 @@ using System.Threading.Tasks;
 
 namespace Stride.Importer.Common.MikkTFace;
 
+
+
+
+public struct SEdge
+{
+    public int i0;
+    public int i1;
+    public int f;
+
+    public int this[int index]
+    {
+        get
+        {
+            if (index == 0) return i0;
+            else if (index == 1) return i1;
+            else if (index == 2) return f;
+            else throw new IndexOutOfRangeException();
+        }
+    }
+}
 public class STmpVert
 {
     public float[] Vert { get; set; }
     public int Index {get;set;}
 }
-public class SSubGroup
+public struct SSubGroup
 {
-    public int IdFace { get; set; }
-    public Vector3 Face { get; set; }
+    public int NumberFaces;
+    public int[] TriMembers = new int[3];
+
+    public SSubGroup()
+    {
+        NumberFaces = 0;
+        TriMembers = new int[3];
+    }
 }
 public class SGroup
 {
     public int NumberFaces { get; set; }
-    public uint[] Indices { get; set; }
+    public int[] Indices { get; set; }
     public int VertexRepresentativeId { get; set; }
     public bool OrientPreservering { get; set; }
 }
@@ -36,9 +62,9 @@ public class STriInfo
     public float FMagT { get; set; } // original magnitudes
     // determines if the current and the next triangle are a quad.
     public int IOrgFaceNumber { get; set; }
-    public int IFlag { get; set; }
+    public int Flag { get; set; }
     public int ITSpacesOffs { get; set; }
-    public uint[] vert_num = new uint[4];
+    public int[] vert_num = new int[4];
 }
 
 public class STSpace

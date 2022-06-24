@@ -17,7 +17,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             int iIndex = (int)fIndex;
             return iIndex < iCells ? (iIndex >= 0 ? iIndex : 0) : (iCells - 1);
         }
-        public void GenerateSharedVerticesIndexList(ref int[] piTriList_in_and_out, int iNrTrianglesIn)
+        public void GenerateSharedVerticesIndexList(ref int[][] piTriList_in_and_out, int iNrTrianglesIn)
         {
 
             // Generate bounding box
@@ -32,7 +32,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             float fMin, fMax;
             for (i = 1; i < (iNrTrianglesIn * 3); i++)
             {
-                int index = piTriList_in_and_out[i];
+                int index = piTriList_in_and_out[i / 3][i % 3];
 
                 Vector3 vP = GetPosition(index);
                 if (vMin.X > vP.X) vMin.X = vP.X;
@@ -83,7 +83,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             // count amount of elements in each cell unit
             for (i = 0; i < (iNrTrianglesIn * 3); i++)
             {
-                int index = piTriList_in_and_out[i];
+                int index = piTriList_in_and_out[i / 3][i % 3];
                 Vector3 vP = GetPosition(index);
                 float fVal = iChannel == 0 ? vP.X : (iChannel == 1 ? vP.Y : vP.Z);
                 int iCell = FindGridCell(fMin, fMax, fVal);
@@ -98,7 +98,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             // insert vertices
             for (i = 0; i < (iNrTrianglesIn * 3); i++)
             {
-                int index = piTriList_in_and_out[i];
+                int index = piTriList_in_and_out[i / 3][i % 3];
                 Vector3 vP = GetPosition(index);
                 float fVal = iChannel == 0 ? vP.X : (iChannel == 1 ? vP.Y : vP.Z);
                 int iCell = FindGridCell(fMin, fMax, fVal);
@@ -134,7 +134,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                     for (e = 0; e < iEntries; e++)
                     {
                         int tmp = pTable[e];
-                        Vector3 vP = GetPosition(piTriList_in_and_out[tmp]);
+                        Vector3 vP = GetPosition(piTriList_in_and_out[tmp / 3][tmp % 3]);
                         pTmpVert[e].Vert[0] = vP.X; pTmpVert[e].Vert[1] = vP.Y;
                         pTmpVert[e].Vert[2] = vP.Z; pTmpVert[e].Index = tmp;
                     }
@@ -144,12 +144,8 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                     MergeVertsSlow(ref piTriList_in_and_out, pTable, iEntries);
             }
 
-            if (pTmpVert != null) { pTmpVert = null; }
-            piHashTable = null;
-            piHashCount = null;
-            piHashOffsets = null;
         }
-        void GenerateSharedVerticesIndexListSlow(ref int[] piTriList_in_and_out, int iNrTrianglesIn)
+        void GenerateSharedVerticesIndexListSlow(ref int[][] piTriList_in_and_out, int iNrTrianglesIn)
         {
 
             int iNumUniqueVerts = 0, t = 0, i = 0;
@@ -158,7 +154,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                 for (i = 0; i < 3; i++)
                 {
                     int offs = t * 3 + i;
-                    int index = piTriList_in_and_out[offs];
+                    int index = piTriList_in_and_out[t][i];
 
                     Vector3 vP = GetPosition(index);
                     Vector3 vN = GetNormal(index);
@@ -171,7 +167,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                         int j = 0;
                         while (!bFound && j < 3)
                         {
-                            int index2 = piTriList_in_and_out[t2 * 3 + j];
+                            int index2 = piTriList_in_and_out[t2][j];
                             Vector3 vP2 = GetPosition(index2);
                             Vector3 vN2 = GetNormal(index2);
                             Vector2 vT2 = GetTexCoord(index2);
@@ -188,12 +184,12 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                     // if we found our own
                     if (index2rec == index) { ++iNumUniqueVerts; }
 
-                    piTriList_in_and_out[offs] = index2rec;
+                    piTriList_in_and_out[offs / 3][offs % 3] = index2rec;
                 }
             }
         }
 
-        public void MergeVertsFast(ref int[] piTriList_in_and_out, STmpVert[] pTmpVert, int iL_in, int iR_in)
+        public void MergeVertsFast(ref int[][] piTriList_in_and_out, STmpVert[] pTmpVert, int iL_in, int iR_in)
         {
             // make bbox
             int c = 0, l = 0, channel = 0;
@@ -225,7 +221,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                 for (l = iL_in; l <= iR_in; l++)
                 {
                     int i = pTmpVert[l].Index;
-                    int index = piTriList_in_and_out[i];
+                    int index = piTriList_in_and_out[i / 3][i % 3];
                     Vector3 vP = GetPosition(index);
                     Vector3 vN = GetNormal(index);
                     Vector2 vT = GetTexCoord(index);
@@ -235,7 +231,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                     while (l2 < l && bNotFound)
                     {
                         int i2 = pTmpVert[l2].Index;
-                        int index2 = piTriList_in_and_out[i2];
+                        int index2 = piTriList_in_and_out[i2 / 3][i2 % 3];
                         Vector3 vP2 = GetPosition(index2);
                         Vector3 vN2 = GetNormal(index2);
                         Vector2 vT2 = GetTexCoord(index2);
@@ -300,14 +296,14 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                     MergeVertsFast(ref piTriList_in_and_out, pTmpVert, iL, iR_in);    // weld all right of (or equal to) fSep
             }
         }
-        public void MergeVertsSlow(ref int[] piTriList_in_and_out, int[] pTable, int iEntries)
+        public void MergeVertsSlow(ref int[][] piTriList_in_and_out, int[] pTable, int iEntries)
         {
             // this can be optimized further using a tree structure or more hashing.
             int e = 0;
             for (e = 0; e < iEntries; e++)
             {
                 int i = pTable[e];
-                int index = piTriList_in_and_out[i];
+                int index = piTriList_in_and_out[i / 3][i % 3];
                 Vector3 vP = GetPosition(index);
                 Vector3 vN = GetNormal(index);
                 Vector2 vT = GetTexCoord(index);
@@ -317,7 +313,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                 while (e2 < e && bNotFound)
                 {
                     int i2 = pTable[e2];
-                    int index2 = piTriList_in_and_out[i2];
+                    int index2 = piTriList_in_and_out[i2 / 3][i2 % 3];
                     Vector3 vP2 = GetPosition(index2);
                     Vector3 vN2 = GetNormal(index2);
                     Vector2 vT2 = GetTexCoord(index2);
@@ -334,7 +330,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                     piTriList_in_and_out[i] = piTriList_in_and_out[i2rec];
             }
         }
-        public void DegenPrologue(ref STriInfo[] pTriInfos, ref int[] piTriList_out, int iNrTrianglesIn, int iTotTris)
+        public void DegenPrologue(List<STriInfo> pTriInfos, ref int[][] piTriList_out, int iNrTrianglesIn, int iTotTris)
         {
 
             int iNextGoodTriangleSearchIndex = -1;
@@ -348,12 +344,12 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                 int iFO_b = pTriInfos[t + 1].IOrgFaceNumber;
                 if (iFO_a == iFO_b) // this is a quad
                 {
-                    bool bIsDeg_a = (pTriInfos[t].IFlag & MARK_DEGENERATE) != 0;
-                    bool bIsDeg_b = (pTriInfos[t + 1].IFlag & MARK_DEGENERATE) != 0;
+                    bool bIsDeg_a = (pTriInfos[t].Flag & MARK_DEGENERATE) != 0;
+                    bool bIsDeg_b = (pTriInfos[t + 1].Flag & MARK_DEGENERATE) != 0;
                     if (bIsDeg_a ^ bIsDeg_b)
                     {
-                        pTriInfos[t].IFlag |= QUAD_ONE_DEGEN_TRI;
-                        pTriInfos[t + 1].IFlag |= QUAD_ONE_DEGEN_TRI;
+                        pTriInfos[t].Flag |= QUAD_ONE_DEGEN_TRI;
+                        pTriInfos[t + 1].Flag |= QUAD_ONE_DEGEN_TRI;
                     }
                     t += 2;
                 }
@@ -369,7 +365,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             bStillFindingGoodOnes = true;
             while (t < iNrTrianglesIn && bStillFindingGoodOnes)
             {
-                bool bIsGood = (pTriInfos[t].IFlag & MARK_DEGENERATE) == 0 ? true : false;
+                bool bIsGood = (pTriInfos[t].Flag & MARK_DEGENERATE) == 0 ? true : false;
                 if (bIsGood)
                 {
                     if (iNextGoodTriangleSearchIndex < (t + 2))
@@ -382,7 +378,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                     bool bJustADegenerate = true;
                     while (bJustADegenerate && iNextGoodTriangleSearchIndex < iTotTris)
                     {
-                        var bIsGood2 = (pTriInfos[iNextGoodTriangleSearchIndex].IFlag & MARK_DEGENERATE) == 0 ? true : false;
+                        var bIsGood2 = (pTriInfos[iNextGoodTriangleSearchIndex].Flag & MARK_DEGENERATE) == 0 ? true : false;
                         if (bIsGood2) bJustADegenerate = false;
                         else ++iNextGoodTriangleSearchIndex;
                     }
@@ -398,9 +394,9 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                         int i = 0;
                         for (i = 0; i < 3; i++)
                         {
-                            int index = piTriList_out[t0 * 3 + i];
-                            piTriList_out[t0 * 3 + i] = piTriList_out[t1 * 3 + i];
-                            piTriList_out[t1 * 3 + i] = index;
+                            int index = piTriList_out[t0][i];
+                            piTriList_out[t0][i] = piTriList_out[t1][i];
+                            piTriList_out[t1][i] = index;
                         }
                         {
                             STriInfo tri_info = pTriInfos[t0];
@@ -418,7 +414,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             //assert(bStillFindingGoodOnes);  // code will still work.
             //assert(iNrTrianglesIn == t);
         }
-        public void InitTriInfo(ref STriInfo[] pTriInfos, ref int[][] piTriListIn, int iNrTrianglesIn)
+        public void InitTriInfo(List<STriInfo> pTriInfos, ref int[][] piTriListIn, int iNrTrianglesIn)
         {
 
             int f = 0, i = 0, t = 0;
@@ -437,7 +433,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                     pTriInfos[f].FMagT = 0;
 
                     // assumed bad
-                    pTriInfos[f].IFlag |= GROUP_WITH_ANY;
+                    pTriInfos[f].Flag |= GROUP_WITH_ANY;
                 }
 
             // evaluate first order derivatives
@@ -463,14 +459,14 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                 Vector3 VOs = t31y * d1 - t21y * d2;   // eq 18
                 Vector3 vOt = -t31x * d1 + t21x * d2; // eq 19
 
-                pTriInfos[f].IFlag |= (fSignedAreaSTx2 > 0 ? ORIENT_PRESERVING : 0);
+                pTriInfos[f].Flag |= (fSignedAreaSTx2 > 0 ? ORIENT_PRESERVING : 0);
 
                 if (fSignedAreaSTx2 > float.Epsilon)
                 {
                     float fAbsArea = MathF.Abs(fSignedAreaSTx2);
                     float fLenOs = VOs.Length();
                     float fLenOt = vOt.Length();
-                    float fS = (pTriInfos[f].IFlag & ORIENT_PRESERVING) == 0 ? (-1.0f) : 1.0f;
+                    float fS = (pTriInfos[f].Flag & ORIENT_PRESERVING) == 0 ? (-1.0f) : 1.0f;
                     if (fLenOs > float.Epsilon) pTriInfos[f].VOs = fS / fLenOs * VOs;
                     if (fLenOt > float.Epsilon) pTriInfos[f].VOt = fS / fLenOt * vOt;
 
@@ -480,7 +476,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
 
                     // if this is a good triangle
                     if (pTriInfos[f].FMagS > float.Epsilon && pTriInfos[f].FMagT > float.Epsilon)
-                        pTriInfos[f].IFlag &= (~GROUP_WITH_ANY);
+                        pTriInfos[f].Flag &= (~GROUP_WITH_ANY);
                 }
             }
             // force otherwise healthy quads to a fixed orientation
@@ -490,21 +486,21 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                 int iFO_b = pTriInfos[t + 1].IOrgFaceNumber;
                 if (iFO_a == iFO_b) // this is a quad
                 {
-                    bool bIsDeg_a = (pTriInfos[t].IFlag & MARK_DEGENERATE) != 0;
-                    bool bIsDeg_b = (pTriInfos[t + 1].IFlag & MARK_DEGENERATE) != 0;
+                    bool bIsDeg_a = (pTriInfos[t].Flag & MARK_DEGENERATE) != 0;
+                    bool bIsDeg_b = (pTriInfos[t + 1].Flag & MARK_DEGENERATE) != 0;
 
                     // bad triangles should already have been removed by
                     // DegenPrologue(), but just in case check bIsDeg_a and bIsDeg_a are false
                     if ((bIsDeg_a || bIsDeg_b) == false)
                     {
-                        bool bOrientA = (pTriInfos[t].IFlag & ORIENT_PRESERVING) != 0;
-                        bool bOrientB = (pTriInfos[t + 1].IFlag & ORIENT_PRESERVING) != 0;
+                        bool bOrientA = (pTriInfos[t].Flag & ORIENT_PRESERVING) != 0;
+                        bool bOrientB = (pTriInfos[t + 1].Flag & ORIENT_PRESERVING) != 0;
                         // if this happens the quad has extremely bad mapping!!
                         if (bOrientA != bOrientB)
                         {
                             //printf("found quad with bad mapping\n");
                             bool bChooseOrientFirstTri = false;
-                            if ((pTriInfos[t + 1].IFlag & GROUP_WITH_ANY) != 0) bChooseOrientFirstTri = true;
+                            if ((pTriInfos[t + 1].Flag & GROUP_WITH_ANY) != 0) bChooseOrientFirstTri = true;
                             else if (CalcTexArea(ref piTriListIn[t * 3 + 0]) >= CalcTexArea(ref piTriListIn[(t + 1) * 3 + 0]))
                                 bChooseOrientFirstTri = true;
 
@@ -512,8 +508,8 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                             {
                                 int t0 = bChooseOrientFirstTri ? t : (t + 1);
                                 int t1 = bChooseOrientFirstTri ? (t + 1) : t;
-                                pTriInfos[t1].IFlag &= (~ORIENT_PRESERVING);    // clear first
-                                pTriInfos[t1].IFlag |= (pTriInfos[t0].IFlag & ORIENT_PRESERVING);   // copy bit
+                                pTriInfos[t1].Flag &= (~ORIENT_PRESERVING);    // clear first
+                                pTriInfos[t1].Flag |= (pTriInfos[t0].Flag & ORIENT_PRESERVING);   // copy bit
                             }
                         }
                     }
@@ -525,12 +521,12 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
 
             // match up edge pairs
             {
-                Vector3[] pEdges = new Vector3[iNrTrianglesIn]; //(SEdge*)malloc(sizeof(SEdge) * iNrTrianglesIn * 3);
+                List<SEdge> pEdges = new List<SEdge>(iNrTrianglesIn); //(Vector3*)malloc(sizeof(Vector3) * iNrTrianglesIn * 3);
                 if (pEdges == null)
-                    BuildNeighborsSlow(ref pTriInfos, ref piTriListIn, iNrTrianglesIn);
+                    BuildNeighborsSlow(pTriInfos, ref piTriListIn, iNrTrianglesIn);
                 else
                 {
-                    BuildNeighborsFast(ref pTriInfos, ref pEdges, ref piTriListIn, iNrTrianglesIn);
+                    BuildNeighborsFast(pTriInfos, pEdges, ref piTriListIn, iNrTrianglesIn);
 
                     pEdges = null;
                 }
@@ -552,7 +548,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
 
             return fSignedAreaSTx2 < 0 ? (-fSignedAreaSTx2) : fSignedAreaSTx2;
         }
-        public void BuildNeighborsSlow(ref STriInfo[] pTriInfos, ref int[][] piTriListIn, int iNrTrianglesIn)
+        public void BuildNeighborsSlow(List<STriInfo> pTriInfos, ref int[][] piTriListIn, int iNrTrianglesIn)
         {
 
             int f = 0, i = 0;
@@ -602,7 +598,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             }
         }
 
-        static void BuildNeighborsFast(ref STriInfo[] pTriInfos, ref Vector3[] pEdges, ref int[][] piTriListIn, int iNrTrianglesIn)
+        public void BuildNeighborsFast(List<STriInfo> pTriInfos, List<SEdge> pEdges, ref int[][] piTriListIn, int iNrTrianglesIn)
         {
             // build array of edges
             int uSeed = INTERNAL_RND_SORT_SEED;                // could replace with a random seed?
@@ -613,9 +609,12 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                 {
                     int i0 = piTriListIn[f][i];
                     int i1 = piTriListIn[f][i < 2 ? (i + 1) : 0];
-                    pEdges[f * 3 + i].X = i0 < i1 ? i0 : i1;           // put minimum index in i0
-                    pEdges[f * 3 + i].Y = !(i0 < i1) ? i0 : i1;        // put maximum index in i1
-                    pEdges[f * 3 + i].Z = f;                            // record face number
+                    pEdges[f * 3 + i] = new SEdge
+                    {
+                        i0 = i0 < i1 ? i0 : i1,      // put minimum index in i0
+                        i1 = !(i0 < i1) ? i0 : i1,    // put maximum index in i1
+                        f = f                           // record face number
+                    };
                 }
             }
             // sort over all edges by i0, this is the pricy one.
@@ -628,7 +627,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             iCurStartIndex = 0;
             for (i = 1; i < iEntries; i++)
             {
-                if (pEdges[iCurStartIndex].X != pEdges[i].X)
+                if (pEdges[iCurStartIndex].i0 != pEdges[i].i0)
                 {
                     int iL = iCurStartIndex;
                     int iR = i - 1;
@@ -644,7 +643,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             iCurStartIndex = 0;
             for (i = 1; i < iEntries; i++)
             {
-                if (pEdges[iCurStartIndex].i0 != pEdges[i].i0 || pEdges[iCurStartIndex].i1 != pEdges[i].i1)
+                if (pEdges[iCurStartIndex].i0 != pEdges[i].i1 || pEdges[iCurStartIndex].f != pEdges[i].f)
                 {
                     int iL = iCurStartIndex;
                     int iR = i - 1;
@@ -657,44 +656,132 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             // pair up, adjacent triangles
             for (i = 0; i < iEntries; i++)
             {
-                int i0 = (int)pEdges[i].X;
-                int i1 = (int)pEdges[i].Y;
-                f = (int)pEdges[i].Z;
+                int i0 = pEdges[i].i0;
+                int i1 = pEdges[i].i1;
+                f = pEdges[i].f;
                 bool bUnassigned_A;
 
-                int i0_A, i1_A;
-                int edgenum_A, edgenum_B = 0;   // 0,1 or 2
-                GetEdge(&i0_A, &i1_A, &edgenum_A, &piTriListIn[f * 3], i0, i1); // resolve index ordering and edge_num
-                bUnassigned_A = pTriInfos[f].FaceNeighbors[edgenum_A] == -1 ? TTRUE : TFALSE;
+                int i0_A =0, i1_A = 0;
+                int edgenum_A = 0, edgenum_B = 0;   // 0,1 or 2
+                GetEdge(ref i0_A, ref i1_A, ref edgenum_A, piTriListIn[f * 3], i0, i1); // resolve index ordering and edge_num
+                bUnassigned_A = pTriInfos[f].FaceNeighbors[edgenum_A] == -1;
 
                 if (bUnassigned_A)
                 {
                     // get true index ordering
                     int j = i + 1, t;
-                    tbool bNotFound = TTRUE;
-                    while (j < iEntries && i0 == pEdges[j].i0 && i1 == pEdges[j].i1 && bNotFound)
+                    bool bNotFound = true;
+                    while (j < iEntries && i0 == pEdges[j].i0 && i1 == pEdges[j].i0 && bNotFound)
                     {
-                        tbool bUnassigned_B;
-                        int i0_B, i1_B;
+                        bool bUnassigned_B;
+                        int i0_B = 0, i1_B = 0;
                         t = pEdges[j].f;
                         // flip i0_B and i1_B
-                        GetEdge(&i1_B, &i0_B, &edgenum_B, &piTriListIn[t * 3], pEdges[j].i0, pEdges[j].i1); // resolve index ordering and edge_num
+                        GetEdge(ref i1_B, ref i0_B, ref edgenum_B, piTriListIn[t * 3], pEdges[j].i0, pEdges[j].i1); // resolve index ordering and edge_num
                                                                                                             //assert(!(i0_A==i1_B && i1_A==i0_B));
-                        bUnassigned_B = pTriInfos[t].FaceNeighbors[edgenum_B] == -1 ? TTRUE : TFALSE;
+                        bUnassigned_B = pTriInfos[t].FaceNeighbors[edgenum_B] == -1 ? true : false;
                         if (i0_A == i0_B && i1_A == i1_B && bUnassigned_B)
-                            bNotFound = TFALSE;
+                            bNotFound = false;
                         else
                             ++j;
                     }
 
                     if (!bNotFound)
                     {
-                        int t = pEdges[j].f;
+                        t = (int)pEdges[j].f;
                         pTriInfos[f].FaceNeighbors[edgenum_A] = t;
                         //assert(pTriInfos[t].FaceNeighbors[edgenum_B]==-1);
                         pTriInfos[t].FaceNeighbors[edgenum_B] = f;
                     }
                 }
+            }
+        }
+        public void QuickSortEdges(List<SEdge> pSortBuffer, int iLeft, int iRight, int channel, int uSeed)
+        {
+
+            int t;
+            int iL, iR, n, index, iMid;
+
+            // early out
+            SEdge sTmp;
+            int iElems = iRight - iLeft + 1;
+            if (iElems < 2) return;
+            else if (iElems == 2)
+            {
+                if (pSortBuffer[iLeft][channel] > pSortBuffer[iRight][channel])
+                {
+                    sTmp = pSortBuffer[iLeft];
+                    pSortBuffer[iLeft] = pSortBuffer[iRight];
+                    pSortBuffer[iRight] = sTmp;
+                }
+                return;
+            }
+
+            // Random
+            t = uSeed & 31;
+            t = (uSeed << t) | (uSeed >> (32 - t));
+            uSeed = uSeed + t + 3;
+            // Random end
+
+            iL = iLeft;
+            iR = iRight;
+            n = (iR - iL) + 1;
+            //assert(n >= 0);
+            index = uSeed % n;
+
+            iMid = (int)pSortBuffer[index + iL][channel];
+
+            do
+            {
+                while (pSortBuffer[iL][channel] < iMid)
+                    ++iL;
+                while (pSortBuffer[iR][channel] > iMid)
+                    --iR;
+
+                if (iL <= iR)
+                {
+                    sTmp = pSortBuffer[iL];
+                    pSortBuffer[iL] = pSortBuffer[iR];
+                    pSortBuffer[iR] = sTmp;
+                    ++iL; --iR;
+                }
+            }
+            while (iL <= iR);
+
+            if (iLeft < iR)
+                QuickSortEdges(pSortBuffer, iLeft, iR, channel, uSeed);
+            if (iL < iRight)
+                QuickSortEdges(pSortBuffer, iL, iRight, channel, uSeed);
+        }
+
+        public void GetEdge(ref int i0_out, ref int i1_out, ref int edgenum_out, int[] indices, int i0_in, int i1_in)
+        {
+            edgenum_out = -1;
+
+            // test if first index is on the edge
+            if (indices[0] == i0_in || indices[0] == i1_in)
+            {
+                // test if second index is on the edge
+                if (indices[1] == i0_in || indices[1] == i1_in)
+                {
+                    edgenum_out = 0; // first edge
+                    i0_out = indices[0];
+                    i1_out = indices[1];
+                }
+                else
+                {
+                    edgenum_out = 2; // third edge
+                    i0_out = indices[2];
+                    i1_out = indices[0];
+                }
+            }
+
+            else
+            {
+                // only second and third index is on the edge
+                edgenum_out = 1; // second edge
+                i0_out = indices[1];
+                i1_out = indices[2];
             }
         }
     }

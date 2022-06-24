@@ -60,4 +60,5 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
         }
 
     }
+    
 }
