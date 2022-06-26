@@ -81,7 +81,9 @@ public partial class GltfMeshConverter
                             material.Attributes.DiffuseModel = new MaterialDiffuseLambertModelFeature();
                             break;
                         case "MetallicRoughness":
-                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(GenerateTextureScalar(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
+                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(new ComputeFloat(0.5f));
+                            material.Attributes.Specular = new MaterialMetalnessMapFeature(GenerateTextureScalar(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
+                            material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
                             break;
                         case "Normal":
                             material.Attributes.Surface = new MaterialNormalMapFeature(GenerateTextureColor(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
@@ -107,7 +109,9 @@ public partial class GltfMeshConverter
                             //material.Attributes.Transparency = new MaterialTransparencyBlendFeature();
                             break;
                         case "MetallicRoughness":
-                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(x) { Invert = true };
+                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(new ComputeFloat(0.5f));
+                            material.Attributes.Specular = new MaterialMetalnessMapFeature(x);
+                            material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
                             break;
                         case "Normal":
                             material.Attributes.Surface = new MaterialNormalMapFeature(vt) { IsXYNormal = true };
@@ -155,7 +159,9 @@ public partial class GltfMeshConverter
                             material.Attributes.DiffuseModel = new MaterialDiffuseLambertModelFeature();
                             break;
                         case "MetallicRoughness":
-                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(GenerateTextureScalar(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
+                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(new ComputeFloat(0.5f));
+                            material.Attributes.Specular = new MaterialMetalnessMapFeature(GenerateTextureScalar(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
+                            material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
                             break;
                         case "Normal":
                             material.Attributes.Surface = new MaterialNormalMapFeature(GenerateTextureColor(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
@@ -181,7 +187,9 @@ public partial class GltfMeshConverter
                             //material.Attributes.Transparency = new MaterialTransparencyBlendFeature();
                             break;
                         case "MetallicRoughness":
-                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(x) { Invert = true };
+                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(new ComputeFloat(0.5f));
+                            material.Attributes.Specular = new MaterialMetalnessMapFeature(x);
+                            material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
                             break;
                         case "Normal":
                             material.Attributes.Surface = new MaterialNormalMapFeature(vt) { IsXYNormal = true };

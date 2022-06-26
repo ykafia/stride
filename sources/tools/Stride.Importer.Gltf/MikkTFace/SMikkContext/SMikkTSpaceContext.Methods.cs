@@ -260,7 +260,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                         //assert(((pTriInfos[f].iFlag & ORIENT_PRESERVING) != 0) == pGroup.bOrientPreservering);
                         if (pTS_out.ICounter == 1)
                         {
-                            pTS_out = AvgTSpace(pTS_out, &pSubGroupTspace[l]);
+                            pTS_out = AvgTSpace(pTS_out, pSubGroupTspace[l]);
                             pTS_out.ICounter = 2;  // update counter
                             pTS_out.Orient = pGroup.OrientPreservering;
                         }
@@ -385,12 +385,12 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                     p0 = GetPosition(i0);
                     p1 = GetPosition(i1);
                     p2 = GetPosition(i2);
-                    v1 = p0 -p1;
-                    v2 = p2 -p1;
+                    v1 = p0 - p1;
+                    v2 = p2 - p1;
 
                     // project
-                    v1 -= (Vector3.Dot(n, v1) *n); if (v1 != Vector3.Zero) v1 = Vector3.Normalize(v1);
-                    v2 -= (Vector3.Dot(n, v2) *n); if (v2 != Vector3.Zero) v2 = Vector3.Normalize(v2);
+                    v1 -= (Vector3.Dot(n, v1) * n); if (v1 != Vector3.Zero) v1 = Vector3.Normalize(v1);
+                    v2 -= (Vector3.Dot(n, v2) * n); if (v2 != Vector3.Zero) v2 = Vector3.Normalize(v2);
 
                     // weight contribution by the angle
                     // between the two edge vectors
@@ -399,8 +399,8 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
                     fMagS = pTriInfos[f].FMagS;
                     fMagT = pTriInfos[f].FMagT;
 
-                    res.VOs = (res.vOs+ (fAngle * vOs));
-                    res.VOt = (res.vOt+ (fAngle * vOt));
+                    res.VOs += (fAngle * vOs);
+                    res.VOt += (fAngle * vOt);
                     res.FMagS += (fAngle * fMagS);
                     res.FMagT += (fAngle * fMagT);
                     fAngleSum += fAngle;
@@ -417,6 +417,35 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             }
 
             return res;
+        }
+
+        static STSpace AvgTSpace(STSpace pTS0, STSpace pTS1)
+        {
+
+            STSpace ts_res = new();
+
+            // this if is important. Due to floating point precision
+            // averaging when ts0==ts1 will cause a slight difference
+            // which results in tangent space splits later on
+            if (pTS0.FMagS == pTS1.FMagS && pTS0.FMagT == pTS1.FMagT &&
+               pTS0.VOs == pTS1.VOs && pTS0.VOt == pTS1.VOt)
+            {
+                ts_res.FMagS = pTS0.FMagS;
+                ts_res.FMagT = pTS0.FMagT;
+                ts_res.VOs = pTS0.VOs;
+                ts_res.VOt = pTS0.VOt;
+            }
+            else
+            {
+                ts_res.FMagS = 0.5f * (pTS0.FMagS + pTS1.FMagS);
+                ts_res.FMagT = 0.5f * (pTS0.FMagT + pTS1.FMagT);
+                ts_res.VOs = pTS0.VOs + pTS1.VOs;
+                ts_res.VOt = pTS0.VOt + pTS1.VOt;
+                if (ts_res.VOs != Vector3.Zero) ts_res.VOs = Vector3.Normalize(ts_res.VOs);
+                if (ts_res.VOt != Vector3.Zero) ts_res.VOt = Vector3.Normalize(ts_res.VOt);
+            }
+
+            return ts_res;
         }
     }
 }

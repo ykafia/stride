@@ -29,7 +29,7 @@ public partial class GltfMeshConverter
         return ExtractMeshes(model, materials);
     }
 
-    public Model ExtractMeshes(ModelRoot root, SortedList<int,MaterialAsset> materials)
+    public Model ExtractMeshes(ModelRoot root, SortedList<int, MaterialAsset> materials)
     {
         var result = new Model();
 
@@ -48,9 +48,11 @@ public partial class GltfMeshConverter
     private Rendering.Mesh ConvertPrimitives(MeshPrimitive primitive)
     {
         var primType = primitive.DrawPrimitiveType.AsSdPrim();
-        var drawCount = primType == Graphics.PrimitiveType.TriangleList ? primitive.GetIndices().Distinct().Count() : 0;
-        var idBuff = SerializeIndexBuffer(primitive.GetIndices());
-        var vBuffs = SerializeVertexBuffer(primitive.GetVertexColumns());
+        var indices = primitive.GetIndices() ?? new List<uint> { 0,1,2 };
+        var drawCount = primType == Graphics.PrimitiveType.TriangleList ? indices.Distinct().Count() : 0;
+        var idBuff = SerializeIndexBuffer(Rewind(indices));
+        //var vBuffs = SerializeVertexBuffer(primitive.GetVertexColumns());
+        var vBuffs = SerializeVertexBuffer(primitive, indices.Distinct().Count());
         var draw = new MeshDraw
         {
             PrimitiveType = primType,
@@ -65,67 +67,53 @@ public partial class GltfMeshConverter
         };
     }
 
-    private VertexBufferBinding[] SerializeVertexBuffer(VertexBufferColumns cols)
+    public List<uint> Rewind(IList<uint> indices)
     {
-        var result = new List<VertexBufferBinding>();
-        var bytes = new List<byte>();
-
-        var vElems = new List<VertexElement>();
-        if (cols.Positions?.Count > 0)
-            vElems.Add(VertexElement.Position<Vector3>());
-        if (cols.Normals?.Count > 0)
-            vElems.Add(VertexElement.Normal<Vector3>());
-        if (cols.Colors0?.Count > 0)
-            vElems.Add(VertexElement.Color<Vector3>());
-        if (cols.TexCoords0?.Count > 0)
-            vElems.Add(VertexElement.TextureCoordinate<Vector2>(0));
-        if (cols.TexCoords1?.Count > 0)
-            vElems.Add(VertexElement.TextureCoordinate<Vector2>(1));
-        if (cols.TexCoords2?.Count > 0)
-            vElems.Add(VertexElement.TextureCoordinate<Vector2>(2));
-        if (cols.TexCoords3?.Count > 0)
-            vElems.Add(VertexElement.TextureCoordinate<Vector2>(3));
-        if (cols.Tangents?.Count > 0)
-            vElems.Add(VertexElement.Tangent<Vector3>());
-        if (cols.Joints0?.Count > 0)
-            vElems.Add(new VertexElement(VertexElementUsage.BlendIndices, PixelFormat.R32G32B32A32_Float));
-        if (cols.Weights0?.Count > 0)
-            vElems.Add(new VertexElement(VertexElementUsage.BlendWeight, PixelFormat.R32G32B32A32_Float));
-
-        var declaration = new VertexDeclaration(vElems.ToArray());
-
-        for (int i = 0; i < cols.Positions.Count; i ++)
-        {
-            if (cols.Positions?.Count > 0)
-                bytes.AddRange(cols.Positions[i].ToBytes());
-            if (cols.Normals?.Count > 0)
-                bytes.AddRange(cols.Normals[i].ToBytes());
-            if (cols.Colors0?.Count > 0)
-                bytes.AddRange(cols.Colors0[i].ToBytes());
-            if (cols.TexCoords0?.Count > 0)
-                bytes.AddRange(cols.TexCoords0[i].ToBytes());
-            if (cols.TexCoords1?.Count > 0)
-                bytes.AddRange(cols.TexCoords1[i].ToBytes());
-            if (cols.TexCoords2?.Count > 0)
-                bytes.AddRange(cols.TexCoords2[i].ToBytes());
-            if (cols.TexCoords3?.Count > 0)
-                bytes.AddRange(cols.TexCoords3[i].ToBytes());
-            if (cols.Tangents?.Count > 0)
-                bytes.AddRange(cols.Tangents[i].ToBytes());
-            if (cols.Joints0?.Count > 0)
-                bytes.AddRange(cols.Joints0[i].ToBytes());
-            //if (cols.Joints1?.Count > 0)
-                //bytes.AddRange(cols.Joints1[i].ToBytes());
-            if (cols.Weights0?.Count > 0)
-                bytes.AddRange(cols.Weights0[i].ToBytes());
-            //if (cols.Weights1?.Count > 0)
-                //bytes.AddRange(cols.Weights1[i].ToBytes());
-        }
-        var buff = GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.VertexBuffer, bytes.ToArray()));
-        result.Add(new VertexBufferBinding(buff, declaration, cols.Positions.Count));
-        return result.ToArray();
+        return indices
+            .Chunk(3)
+            .Select(tri => new uint[] { tri[0], tri[2], tri[1] })
+            .SelectMany(x => x)
+            .ToList();
     }
 
+    private VertexBufferBinding[] SerializeVertexBuffer(MeshPrimitive primitive, int indexCount)
+    {
+        var result = new List<VertexBufferBinding>();
+        var declarationList = new List<VertexElement>();
+        var byteOffset = 0;
+        foreach(var (k,v) in primitive.VertexAccessors)
+        {
+            declarationList.Add(
+                (k,v.Format.ByteSize, v.Encoding) switch
+                {
+                    ("POSITION", 12, EncodingType.FLOAT) => VertexElement.Position<Vector3>(offsetInBytes: byteOffset),
+                    ("NORMAL", 12, EncodingType.FLOAT) => VertexElement.Normal<Vector3>(offsetInBytes: byteOffset),
+                    ("TEXCOORD_0", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(0, byteOffset),
+                    ("TEXCOORD_1", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(1, byteOffset),
+                    ("TEXCOORD_2", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(2, byteOffset),
+                    ("TEXCOORD_3", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(3, byteOffset),
+                    ("TANGENT", 16, EncodingType.FLOAT) => VertexElement.Tangent<Vector4>(offsetInBytes: byteOffset),
+                    ("JOINTS_0", 8, EncodingType.UNSIGNED_SHORT) => new VertexElement(VertexElementUsage.BlendIndices,0, PixelFormat.R16G16B16A16_UInt, byteOffset),
+                    ("WEIGHTS_0", 16, EncodingType.FLOAT) => new VertexElement(VertexElementUsage.BlendWeight, 0, PixelFormat.R32G32B32A32_Float, byteOffset),
+
+                    _ => throw new NotImplementedException()
+                }
+            );
+            byteOffset += v.Format.ByteSize;
+        }
+        List<byte> vertBuf = new();
+        for(int i = 0; i < indexCount; i++)
+        {
+            foreach(var ve in declarationList)
+            {
+                vertBuf.AddRange(primitive.VertexAccessors[ve.SemanticName.ToGLTFAccessor(ve.SemanticIndex)].TryGetVertexBytes(i).ToArray());
+            }
+        }
+        var declaration = new VertexDeclaration(declarationList.ToArray());
+        var buff = GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.VertexBuffer, vertBuf.ToArray()));
+        result.Add(new VertexBufferBinding(buff, declaration, primitive.GetVertexColumns().Positions.Count));
+        return result.ToArray();
+    }
     public IndexBufferBinding SerializeIndexBuffer(IList<uint> indices)
     {
         var buf = GraphicsSerializerExtensions.ToSerializableVersion(

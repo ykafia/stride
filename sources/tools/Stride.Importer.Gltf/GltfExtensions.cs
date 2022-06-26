@@ -32,6 +32,10 @@ public static class GltfExtensions
     {
         return new Color(vector4.X, vector4.Y, vector4.Z, vector4.W);
     }
+    public static System.Numerics.Vector3 XYZ(this System.Numerics.Vector4 v)
+    {
+        return new System.Numerics.Vector3(v.X, v.Y, v.Z);
+    }
 
     public static byte[] ToBytes(this System.Numerics.Vector4 v)
     {
@@ -59,6 +63,17 @@ public static class GltfExtensions
             PrimitiveType.TRIANGLE_STRIP => Graphics.PrimitiveType.TriangleStrip,
             PrimitiveType.TRIANGLE_FAN => throw new NotImplementedException(),
             _ => throw new NotImplementedException(),
+        };
+    }
+
+    public static string ToGLTFAccessor(this string v, int semanticIndex = 0)
+    {
+        return v switch
+        {
+            "TEXCOORD" => "TEXCOORD_" + semanticIndex,
+            "BLENDINDICES" => "JOINTS_"+ semanticIndex,
+            "BLENDWEIGHT" => "WEIGHTS_" + semanticIndex,
+            _ => v
         };
     }
 }

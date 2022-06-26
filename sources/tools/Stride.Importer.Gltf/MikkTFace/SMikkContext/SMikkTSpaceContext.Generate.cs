@@ -105,16 +105,8 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
 
             //
 
-            psTspace = new List<STSpace>(iNrTSPaces);// (STSpace*)malloc(sizeof(STSpace) * iNrTSPaces);
-            if (psTspace == null)
-            {
-                //free(piTriListIn);
-                //free(pTriInfos);
-                //free(pGroups);
-                //free(piGroupTrianglesBuffer);
-                return false;
-            }
-            //memset(psTspace, 0, sizeof(STSpace) * iNrTSPaces);
+            psTspace = new List<STSpace>(iNrTSPaces);// (STSpace*)malloc(sizeof(STSpace) * iNrTSPaces
+            
             for (t = 0; t < iNrTSPaces; t++)
             {
                 psTspace[t].VOs.X = 1.0f; psTspace[t].VOs.Y = 0.0f; psTspace[t].VOs.Z = 0.0f; psTspace[t].FMagS = 1.0f;

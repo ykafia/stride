@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using SharpGLTF.Geometry;
+using Stride.Core.Diagnostics;
 using Stride.Importer.Common.MikkTFace;
 
 namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
@@ -20,6 +21,13 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
         static int iCells = 2048;
 
         public VertexBufferColumns Columns { get; set; }
+        private Logger logger;
+
+        public SMikkTSpaceContext(Logger logger, VertexBufferColumns cols)
+        {
+            this.logger = logger;
+            Columns = cols;
+        }
 
 
         public int MakeIndex(int a, int b) => a * 3 + b;
