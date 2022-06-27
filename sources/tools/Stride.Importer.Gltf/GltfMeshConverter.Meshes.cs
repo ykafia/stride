@@ -34,15 +34,19 @@ public partial class GltfMeshConverter
         var result = new Model();
 
         List<Model> models = root.LogicalMeshes.Select(ConvertMeshes).ToList();
-        return models[0];
+        result = models[0];
+        result.Skeleton = new Skeleton();
+        return result;
     }
 
     private Model ConvertMeshes(SharpGLTF.Schema2.Mesh m)
     {
-        return new Model
+        var model = new Model();
+        foreach(var p in m.Primitives.Select(ConvertPrimitives))
         {
-            Meshes = m.Primitives.Select(ConvertPrimitives).ToList()
-        };
+            model.Add(p);
+        }
+        return model;
     }
 
     private Rendering.Mesh ConvertPrimitives(MeshPrimitive primitive)
@@ -88,7 +92,9 @@ public partial class GltfMeshConverter
                 {
                     ("POSITION", 12, EncodingType.FLOAT) => VertexElement.Position<Vector3>(offsetInBytes: byteOffset),
                     ("NORMAL", 12, EncodingType.FLOAT) => VertexElement.Normal<Vector3>(offsetInBytes: byteOffset),
+                    ("NORMAL", 3, EncodingType.BYTE) => VertexElement.Normal<Vector3>(offsetInBytes: byteOffset),
                     ("TEXCOORD_0", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(0, byteOffset),
+                    ("TEXCOORD_0", 4, EncodingType.UNSIGNED_SHORT) => new VertexElement(VertexElementUsage.Normal, 0, PixelFormat.R8G8_UInt, byteOffset),
                     ("TEXCOORD_1", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(1, byteOffset),
                     ("TEXCOORD_2", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(2, byteOffset),
                     ("TEXCOORD_3", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(3, byteOffset),
