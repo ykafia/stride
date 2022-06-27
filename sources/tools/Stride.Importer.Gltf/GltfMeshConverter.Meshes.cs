@@ -42,7 +42,7 @@ public partial class GltfMeshConverter
     private Model ConvertMeshes(SharpGLTF.Schema2.Mesh m)
     {
         var model = new Model();
-        foreach(var p in m.Primitives.Select(ConvertPrimitives))
+        foreach (var p in m.Primitives.Select(ConvertPrimitives))
         {
             model.Add(p);
         }
@@ -52,11 +52,16 @@ public partial class GltfMeshConverter
     private Rendering.Mesh ConvertPrimitives(MeshPrimitive primitive)
     {
         var primType = primitive.DrawPrimitiveType.AsSdPrim();
-        var indices = primitive.GetIndices() ?? new List<uint> { 0,1,2 };
-        var drawCount = primType == Graphics.PrimitiveType.TriangleList ? indices.Distinct().Count() : 0;
-        var idBuff = SerializeIndexBuffer(Rewind(indices));
+        var indices = primitive.GetIndices().Select(x => (int)x) ?? new List<int> { 0, 1, 2 };
+        var drawCount = primType == Graphics.PrimitiveType.TriangleList ? indices.Count() : 0;
+        var idBuff = 
+            SerializeIndexBuffer(
+                primType == Graphics.PrimitiveType.TriangleList ? 
+                    primitive.GetTriangleIndices().SelectMany(x => new int[] {x.A, x.C, x.B}).ToList()
+                    : primitive.GetIndices().Select(x => (int)x).ToList()
+        );
         //var vBuffs = SerializeVertexBuffer(primitive.GetVertexColumns());
-        var vBuffs = SerializeVertexBuffer(primitive, indices.Distinct().Count());
+        var vBuffs = SerializeVertexBuffer(primitive);
         var draw = new MeshDraw
         {
             PrimitiveType = primType,
@@ -71,36 +76,50 @@ public partial class GltfMeshConverter
         };
     }
 
-    public List<uint> Rewind(IList<uint> indices)
+    public List<int> Rewind(IEnumerable<int> indices)
     {
         return indices
             .Chunk(3)
-            .Select(tri => new uint[] { tri[0], tri[2], tri[1] })
+            .Select(tri => new int[] { tri[0], tri[2], tri[1] })
             .SelectMany(x => x)
             .ToList();
     }
 
-    private VertexBufferBinding[] SerializeVertexBuffer(MeshPrimitive primitive, int indexCount)
+    private VertexBufferBinding[] SerializeVertexBuffer(MeshPrimitive primitive)
     {
         var result = new List<VertexBufferBinding>();
         var declarationList = new List<VertexElement>();
+
+        //var cols = primitive.GetVertexColumns();
+        //if (cols.Positions != null)
+        //    declarationList.Add(VertexElement.Position<Vector3>());
+        //if (cols.Normals != null)
+        //    declarationList.Add(VertexElement.Normal<Vector3>());
+
         var byteOffset = 0;
-        foreach(var (k,v) in primitive.VertexAccessors)
+
+        foreach (var (k, v) in primitive.VertexAccessors)
         {
             declarationList.Add(
-                (k,v.Format.ByteSize, v.Encoding) switch
+                (k, v.Format.ByteSize, v.Encoding) switch
                 {
-                    ("POSITION", 12, EncodingType.FLOAT) => VertexElement.Position<Vector3>(offsetInBytes: byteOffset),
-                    ("NORMAL", 12, EncodingType.FLOAT) => VertexElement.Normal<Vector3>(offsetInBytes: byteOffset),
-                    ("NORMAL", 3, EncodingType.BYTE) => VertexElement.Normal<Vector3>(offsetInBytes: byteOffset),
-                    ("TEXCOORD_0", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(0, byteOffset),
-                    ("TEXCOORD_0", 4, EncodingType.UNSIGNED_SHORT) => new VertexElement(VertexElementUsage.Normal, 0, PixelFormat.R8G8_UInt, byteOffset),
-                    ("TEXCOORD_1", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(1, byteOffset),
-                    ("TEXCOORD_2", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(2, byteOffset),
-                    ("TEXCOORD_3", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(3, byteOffset),
-                    ("TANGENT", 16, EncodingType.FLOAT) => VertexElement.Tangent<Vector4>(offsetInBytes: byteOffset),
-                    ("JOINTS_0", 8, EncodingType.UNSIGNED_SHORT) => new VertexElement(VertexElementUsage.BlendIndices,0, PixelFormat.R16G16B16A16_UInt, byteOffset),
+                    // Default values
+                    ("POSITION", 12, EncodingType.FLOAT) => VertexElement.Position<Vector3>(),
+                    ("NORMAL", 12, EncodingType.FLOAT) => VertexElement.Normal<Vector3>(),
+                    ("COLOR_0", 16, EncodingType.FLOAT) => VertexElement.Color<Vector4>(0),
+
+                    ("TEXCOORD_0", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(0),
+                    ("TEXCOORD_1", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(1),
+                    ("TEXCOORD_2", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(2),
+                    ("TEXCOORD_3", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(3),
+                    ("TANGENT", 16, EncodingType.FLOAT) => VertexElement.Tangent<Vector4>(),
+                    ("JOINTS_0", 8, EncodingType.UNSIGNED_SHORT) => new VertexElement(VertexElementUsage.BlendIndices, 0, PixelFormat.R16G16B16A16_UInt, byteOffset),
                     ("WEIGHTS_0", 16, EncodingType.FLOAT) => new VertexElement(VertexElementUsage.BlendWeight, 0, PixelFormat.R32G32B32A32_Float, byteOffset),
+
+                    // Quantized vertices
+                    ("NORMAL", 3, EncodingType.BYTE) => VertexElement.Normal<Vector3>(offsetInBytes: byteOffset),
+                    ("TEXCOORD_0", 4, EncodingType.UNSIGNED_SHORT) => new VertexElement(VertexElementUsage.Normal, 0, PixelFormat.R8G8_UInt, byteOffset),
+
 
                     _ => throw new NotImplementedException()
                 }
@@ -108,11 +127,22 @@ public partial class GltfMeshConverter
             byteOffset += v.Format.ByteSize;
         }
         List<byte> vertBuf = new();
-        for(int i = 0; i < indexCount; i++)
+        for (int i = 0; i < primitive.GetVertexColumns().Positions.Count; i++)
         {
-            foreach(var ve in declarationList)
+            foreach (var ve in declarationList)
             {
                 vertBuf.AddRange(primitive.VertexAccessors[ve.SemanticName.ToGLTFAccessor(ve.SemanticIndex)].TryGetVertexBytes(i).ToArray());
+                //vertBuf.AddRange(
+                //    ve.SemanticName switch
+                //    {
+                //        "POSITION" => primitive.GetVertexColumns().Positions[i].ToBytes(),
+                //        "NORMAL" => primitive.GetVertexColumns().Normals[i].ToBytes(),
+                //        "TEXCOORD" => primitive.GetVertexColumns().TexCoords0[i].ToBytes(),
+                //        "TANGENT" => primitive.GetVertexColumns().Tangents[i].ToBytes(),
+                //        "COLOR" => primitive.GetVertexColumns().Colors0[i].ToBytes(),
+                //        _ => throw new NotImplementedException(),
+                //    }
+                //);
             }
         }
         var declaration = new VertexDeclaration(declarationList.ToArray());
@@ -120,13 +150,16 @@ public partial class GltfMeshConverter
         result.Add(new VertexBufferBinding(buff, declaration, primitive.GetVertexColumns().Positions.Count));
         return result.ToArray();
     }
-    public IndexBufferBinding SerializeIndexBuffer(IList<uint> indices)
+    public IndexBufferBinding SerializeIndexBuffer(List<int> indices)
     {
         var buf = GraphicsSerializerExtensions.ToSerializableVersion(
-            new BufferData(
-                BufferFlags.IndexBuffer,
-                indices.Select(BitConverter.GetBytes).SelectMany(x => x).ToArray()
-            )
+            new BufferData 
+            {
+                BufferFlags = BufferFlags.IndexBuffer,
+                Content = indices.Select(BitConverter.GetBytes).SelectMany(x => x).ToArray(),
+                Usage = GraphicsResourceUsage.Default,
+                StructureByteStride = 4
+            }
         );
         return new IndexBufferBinding(buf, true, indices.Count);
     }

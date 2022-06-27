@@ -86,13 +86,16 @@ public partial class GltfMeshConverter
         var materials = ExtractMaterials(model, fullPath, textures);
         var meshes = ExtractMeshParameters(model, fullPath);
 
+        var nodeInfos = new List<NodeInfo>();
+        nodeInfos.Add(new NodeInfo { Depth = 0, Preserve = true, Name = model.LogicalMeshes.First().Name });
+
         return new EntityInfo
         {
             TextureDependencies = textures,
             AnimationNodes = animationNodes,
             Materials = materials,
             Models = meshes,
-            Nodes = null
+            Nodes = nodeInfos
         };
     }
 }
