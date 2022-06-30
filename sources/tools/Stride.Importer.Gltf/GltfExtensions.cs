@@ -28,9 +28,29 @@ public static class GltfExtensions
             return (float)parameters[0].Value;
         else return 0;
     }
+    public static float GetX(this IReadOnlyList<IMaterialParameter> parameters)
+    {
+        if (parameters[0].ValueType == typeof(float))
+            return (float)parameters[0].Value;
+        else return 0;
+    }
+    public static float GetY(this IReadOnlyList<IMaterialParameter> parameters)
+    {
+        if (parameters[1].ValueType == typeof(float))
+            return (float)parameters[1].Value;
+        else return 0;
+    }
     public static Color ToColor(this System.Numerics.Vector4 vector4)
     {
         return new Color(vector4.X, vector4.Y, vector4.Z, vector4.W);
+    }
+    public static Color ToColor(this System.Numerics.Vector3 vector3)
+    {
+        return new Color(vector3.X, vector3.Y, vector3.Z);
+    }
+    public static ColorBGRA ToBGRA(this System.Numerics.Vector3 vector3)
+    {
+        return new ColorBGRA(vector3.X, vector3.Y, vector3.Z, 1f);
     }
     public static System.Numerics.Vector3 XYZ(this System.Numerics.Vector4 v)
     {

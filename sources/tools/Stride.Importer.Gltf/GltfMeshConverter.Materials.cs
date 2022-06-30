@@ -85,6 +85,14 @@ public partial class GltfMeshConverter
                             material.Attributes.Specular = new MaterialMetalnessMapFeature(GenerateTextureScalar(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
                             material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
                             break;
+                        case "SpecularColor":
+                            material.Attributes.Specular = new MaterialSpecularMapFeature() { SpecularMap = GenerateTextureColor(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One)};
+                            material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
+                            break;
+                        //case "SpecularFactor":
+                        //    material.Attributes.Specular = new MaterialSpecularMapFeature() { Intensity = specularFactor };
+                        //    material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
+                        //    break;
                         case "Normal":
                             material.Attributes.Surface = new MaterialNormalMapFeature(GenerateTextureColor(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
                             break;
@@ -99,7 +107,8 @@ public partial class GltfMeshConverter
                 else if (chan.Texture == null && !chan.HasDefaultContent)
                 {
                     var vt = new ComputeColor(chan.Parameters.ToColor());
-                    var x = new ComputeFloat(chan.Parameters.ToFloat());
+                    var x = new ComputeFloat(chan.Parameters.GetX());
+
 
                     switch (chan.Key)
                     {
@@ -109,8 +118,16 @@ public partial class GltfMeshConverter
                             //material.Attributes.Transparency = new MaterialTransparencyBlendFeature();
                             break;
                         case "MetallicRoughness":
-                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(new ComputeFloat(0.5f));
-                            material.Attributes.Specular = new MaterialMetalnessMapFeature(x);
+                            var metallic = new ComputeFloat((float)chan.Parameters.First(x => x.Name.StartsWith("MetallicFactor")).Value);
+                            var roughness = new ComputeFloat((float)chan.Parameters.First(x => x.Name.StartsWith("RoughnessFactor")).Value);
+                            material.Attributes.MicroSurface =
+                                new MaterialGlossinessMapFeature(roughness);
+                            material.Attributes.Specular = new MaterialMetalnessMapFeature(metallic);
+                            material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
+                            break;
+                        case "SpecularColor":
+                            var specularColor = new ComputeColor(((System.Numerics.Vector3)chan.Parameters.First(x => x.Name.StartsWith("RGB")).Value).ToColor());
+                            material.Attributes.Specular = new MaterialSpecularMapFeature() { SpecularMap = specularColor};
                             material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
                             break;
                         case "Normal":
@@ -177,7 +194,8 @@ public partial class GltfMeshConverter
                 else if (chan.Texture == null && !chan.HasDefaultContent)
                 {
                     var vt = new ComputeColor(chan.Parameters.ToColor());
-                    var x = new ComputeFloat(chan.Parameters.ToFloat());
+                    var x = new ComputeFloat(chan.Parameters.GetX());
+                    
 
                     switch (chan.Key)
                     {
@@ -187,8 +205,24 @@ public partial class GltfMeshConverter
                             //material.Attributes.Transparency = new MaterialTransparencyBlendFeature();
                             break;
                         case "MetallicRoughness":
-                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(new ComputeFloat(0.5f));
-                            material.Attributes.Specular = new MaterialMetalnessMapFeature(x);
+                            var metallic = new ComputeFloat((float)chan.Parameters.First(x => x.Name.StartsWith("MetallicFactor")).Value);
+                            var rougness = new ComputeFloat((float)chan.Parameters.First(x => x.Name.StartsWith("RoughnessFactor")).Value);
+                            material.Attributes.MicroSurface = 
+                                new MaterialGlossinessMapFeature(rougness)
+                                {
+                                    Invert = true
+                                };
+                            material.Attributes.Specular = new MaterialMetalnessMapFeature(metallic);
+                            material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
+                            break;
+                        case "SpecularColor":
+                            var specularColor = new ComputeColor(((System.Numerics.Vector3)chan.Parameters.First(x => x.Name.StartsWith("RGB")).Value).ToColor());
+                            material.Attributes.Specular = new MaterialSpecularMapFeature() { SpecularMap = specularColor };
+                            material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
+                            break;
+                        case "SpecularFactor":
+                            var specularFactor = new ComputeFloat((float)chan.Parameters.First(x => x.Name.StartsWith("SpecularFactor")).Value);
+                            material.Attributes.Specular = new MaterialSpecularMapFeature() { Intensity = specularFactor};
                             material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
                             break;
                         case "Normal":

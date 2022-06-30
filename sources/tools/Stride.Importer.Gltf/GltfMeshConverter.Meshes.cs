@@ -13,6 +13,7 @@ using Stride.Rendering;
 using Stride.Assets.Materials;
 using Stride.Graphics.Data;
 using SharpGLTF.Geometry;
+using Stride.Extensions;
 
 namespace Stride.Importer.Gltf;
 
@@ -24,17 +25,24 @@ public partial class GltfMeshConverter
         var model = LoadGltf(sourcePath);
         var textures = ExtractTextureDependencies(model, sourcePath);
         var animationNodes = ExtractAnimationNodes(model);
-        var materials = ExtractMaterialsAsList(model, sourcePath, textures);
+        //var materials = ExtractMaterialsAsList(model, sourcePath, textures);
         var meshes = ExtractMeshParameters(model, sourcePath);
-        return ExtractMeshes(model, materials);
+        return ExtractMeshes(model);
     }
 
-    public Model ExtractMeshes(ModelRoot root, SortedList<int, MaterialAsset> materials)
+    public Model ExtractMeshes(ModelRoot root)
     {
         var result = new Model();
 
-        List<Model> models = root.LogicalMeshes.Select(ConvertMeshes).ToList();
-        result = models[0];
+        var meshes = root.LogicalMeshes
+               .Select(x => (x.Primitives.Select(x => ConvertPrimitives(x)).ToList(), ConvertNumerics(x.VisualParents.First().WorldMatrix))).ToList();
+        meshes.ForEach(mesh =>
+            {
+                var mat = mesh.Item2;
+                mesh.Item1.ForEach(m => { foreach (var vb in m.Draw.VertexBuffers) { vb.TransformBuffer(ref mat); } });
+            }
+        );
+        result = new Model { Meshes = meshes.SelectMany(x => x.Item1).ToList() };
         result.Skeleton = new Skeleton();
         return result;
     }
@@ -54,10 +62,10 @@ public partial class GltfMeshConverter
         var primType = primitive.DrawPrimitiveType.AsSdPrim();
         var indices = primitive.GetIndices().Select(x => (int)x) ?? new List<int> { 0, 1, 2 };
         var drawCount = primType == Graphics.PrimitiveType.TriangleList ? indices.Count() : 0;
-        var idBuff = 
+        var idBuff =
             SerializeIndexBuffer(
-                primType == Graphics.PrimitiveType.TriangleList ? 
-                    primitive.GetTriangleIndices().SelectMany(x => new int[] {x.A, x.C, x.B}).ToList()
+                primType == Graphics.PrimitiveType.TriangleList ?
+                    primitive.GetTriangleIndices().SelectMany(x => new int[] { x.A, x.C, x.B }).ToList()
                     : primitive.GetIndices().Select(x => (int)x).ToList()
         );
         //var vBuffs = SerializeVertexBuffer(primitive.GetVertexColumns());
@@ -107,21 +115,18 @@ public partial class GltfMeshConverter
                     ("POSITION", 12, EncodingType.FLOAT) => VertexElement.Position<Vector3>(),
                     ("NORMAL", 12, EncodingType.FLOAT) => VertexElement.Normal<Vector3>(),
                     ("COLOR_0", 16, EncodingType.FLOAT) => VertexElement.Color<Vector4>(0),
+                    ("COLOR_1", 16, EncodingType.FLOAT) => VertexElement.Color<Vector4>(0),
 
                     ("TEXCOORD_0", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(0),
                     ("TEXCOORD_1", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(1),
                     ("TEXCOORD_2", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(2),
                     ("TEXCOORD_3", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(3),
+
                     ("TANGENT", 16, EncodingType.FLOAT) => VertexElement.Tangent<Vector4>(),
                     ("JOINTS_0", 8, EncodingType.UNSIGNED_SHORT) => new VertexElement(VertexElementUsage.BlendIndices, 0, PixelFormat.R16G16B16A16_UInt, byteOffset),
                     ("WEIGHTS_0", 16, EncodingType.FLOAT) => new VertexElement(VertexElementUsage.BlendWeight, 0, PixelFormat.R32G32B32A32_Float, byteOffset),
 
-                    // Quantized vertices
-                    ("NORMAL", 3, EncodingType.BYTE) => VertexElement.Normal<Vector3>(offsetInBytes: byteOffset),
-                    ("TEXCOORD_0", 4, EncodingType.UNSIGNED_SHORT) => new VertexElement(VertexElementUsage.Normal, 0, PixelFormat.R8G8_UInt, byteOffset),
-
-
-                    _ => throw new NotImplementedException()
+                    _ => throw new NotImplementedException($"Format for {k} with {v.Encoding} and {v.Format.ByteSize} is not yet supported")
                 }
             );
             byteOffset += v.Format.ByteSize;
@@ -153,7 +158,7 @@ public partial class GltfMeshConverter
     public IndexBufferBinding SerializeIndexBuffer(List<int> indices)
     {
         var buf = GraphicsSerializerExtensions.ToSerializableVersion(
-            new BufferData 
+            new BufferData
             {
                 BufferFlags = BufferFlags.IndexBuffer,
                 Content = indices.Select(BitConverter.GetBytes).SelectMany(x => x).ToArray(),
@@ -162,5 +167,15 @@ public partial class GltfMeshConverter
             }
         );
         return new IndexBufferBinding(buf, true, indices.Count);
+    }
+
+    public static Matrix ConvertNumerics(System.Numerics.Matrix4x4 mat)
+    {
+        return new Matrix(
+                mat.M11, mat.M12, mat.M13, mat.M14,
+                mat.M21, mat.M22, mat.M23, mat.M24,
+                mat.M31, mat.M32, mat.M33, mat.M34,
+                mat.M41, mat.M42, mat.M43, mat.M44
+            );
     }
 }
