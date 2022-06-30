@@ -221,6 +221,7 @@ public partial class GltfMeshConverter
                             material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
                             break;
                         case "SpecularFactor":
+                            // TODO : use specular map with ComputeColor grey + factor is intensity
                             var specularFactor = new ComputeFloat((float)chan.Parameters.First(x => x.Name.StartsWith("SpecularFactor")).Value);
                             material.Attributes.Specular = new MaterialSpecularMapFeature() { Intensity = specularFactor};
                             material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
