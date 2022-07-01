@@ -19,6 +19,7 @@ namespace Stride.Assets.Models
         private object ExportSkeleton(ICommandContext commandContext, ContentManager contentManager)
         {
             var skeleton = LoadSkeleton(commandContext, contentManager);
+            if (skeleton == null) return null;
             AdjustSkeleton(skeleton);
 
             var modelNodes = new HashSet<string>(skeleton.Nodes.Select(x => x.Name));

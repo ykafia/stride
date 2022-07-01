@@ -121,7 +121,7 @@ public partial class GltfMeshConverter
                             var metallic = new ComputeFloat((float)chan.Parameters.First(x => x.Name.StartsWith("MetallicFactor")).Value);
                             var roughness = new ComputeFloat((float)chan.Parameters.First(x => x.Name.StartsWith("RoughnessFactor")).Value);
                             material.Attributes.MicroSurface =
-                                new MaterialGlossinessMapFeature(roughness);
+                                new MaterialGlossinessMapFeature(roughness) { Invert = true};
                             material.Attributes.Specular = new MaterialMetalnessMapFeature(metallic);
                             material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
                             break;
@@ -129,6 +129,13 @@ public partial class GltfMeshConverter
                             var specularColor = new ComputeColor(((System.Numerics.Vector3)chan.Parameters.First(x => x.Name.StartsWith("RGB")).Value).ToColor());
                             material.Attributes.Specular = new MaterialSpecularMapFeature() { SpecularMap = specularColor};
                             material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
+                            break;
+                        case "SpecularFactor":
+                            var specularFactor = new ComputeFloat((float)chan.Parameters[0].Value);
+                            if (material.Attributes.Specular is MaterialMetalnessMapFeature)
+                                material.Attributes.Specular = new MaterialSpecularMapFeature() { SpecularMap = new ComputeColor(Color.Gray), Intensity = specularFactor };
+                            else if (material.Attributes.Specular is MaterialSpecularMapFeature spec)
+                                spec.Intensity = specularFactor;
                             break;
                         case "Normal":
                             material.Attributes.Surface = new MaterialNormalMapFeature(vt) { IsXYNormal = true };
@@ -223,7 +230,8 @@ public partial class GltfMeshConverter
                         case "SpecularFactor":
                             // TODO : use specular map with ComputeColor grey + factor is intensity
                             var specularFactor = new ComputeFloat((float)chan.Parameters.First(x => x.Name.StartsWith("SpecularFactor")).Value);
-                            material.Attributes.Specular = new MaterialSpecularMapFeature() { Intensity = specularFactor};
+                            var white = new ComputeColor(Color.White);
+                            material.Attributes.Specular = new MaterialSpecularMapFeature() { SpecularMap = white, Intensity = specularFactor};
                             material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
                             break;
                         case "Normal":

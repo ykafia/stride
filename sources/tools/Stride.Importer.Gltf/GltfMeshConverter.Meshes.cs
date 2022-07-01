@@ -43,7 +43,7 @@ public partial class GltfMeshConverter
             }
         );
         result = new Model { Meshes = meshes.SelectMany(x => x.Item1).ToList() };
-        result.Skeleton = new Skeleton();
+        result.Skeleton = ConvertSkeleton(root);
         return result;
     }
 
@@ -60,8 +60,14 @@ public partial class GltfMeshConverter
     private Rendering.Mesh ConvertPrimitives(MeshPrimitive primitive)
     {
         var primType = primitive.DrawPrimitiveType.AsSdPrim();
-        var indices = primitive.GetIndices().Select(x => (int)x) ?? new List<int> { 0, 1, 2 };
-        var drawCount = primType == Graphics.PrimitiveType.TriangleList ? indices.Count() : 0;
+        var indices = new List<int>();
+        if (primitive.GetIndices() != null)
+            indices = primitive.GetIndices().Select(x => (int)x).ToList();
+        else if (primitive.GetTriangleIndices() != null)
+            indices = primitive.GetTriangleIndices().SelectMany(x => new int[] { x.A, x.C, x.B }).ToList();
+        else
+            throw new Exception("There is no indices, or indices not supported");
+        var drawCount = indices.Count();
         var idBuff =
             SerializeIndexBuffer(
                 primType == Graphics.PrimitiveType.TriangleList ?
@@ -115,7 +121,7 @@ public partial class GltfMeshConverter
                     ("POSITION", 12, EncodingType.FLOAT) => VertexElement.Position<Vector3>(),
                     ("NORMAL", 12, EncodingType.FLOAT) => VertexElement.Normal<Vector3>(),
                     ("COLOR_0", 16, EncodingType.FLOAT) => VertexElement.Color<Vector4>(0),
-                    ("COLOR_1", 16, EncodingType.FLOAT) => VertexElement.Color<Vector4>(0),
+                    ("COLOR_1", 16, EncodingType.FLOAT) => VertexElement.Color<Vector4>(1),
 
                     ("TEXCOORD_0", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(0),
                     ("TEXCOORD_1", 8, EncodingType.FLOAT) => VertexElement.TextureCoordinate<Vector2>(1),
@@ -131,12 +137,35 @@ public partial class GltfMeshConverter
             );
             byteOffset += v.Format.ByteSize;
         }
+        List<byte[]> generatedNormals = new();
+        bool hasNormals = true;
+        if (!declarationList.Any(x => x.SemanticName == "NORMAL"))
+        {
+            declarationList.Add(VertexElement.Normal<Vector3>());
+            hasNormals = false;
+            var indices = new List<int[]>();
+            if (primitive.GetIndices() is not null) indices = primitive.GetIndices().Chunk(3).Select(x => new int[] { (int)x[0], (int)x[1], (int)x[2] }).ToList();
+            else if (primitive.GetTriangleIndices() is not null) indices = primitive.GetTriangleIndices().Select(x => new int[] { x.A, x.B, x.C }).ToList();
+            else throw new Exception("No indices to generate normals");
+            var positions = primitive.GetVertexColumns().Positions;
+            foreach(var tId in indices)
+            {
+                var normal = Vector3.Cross(positions[tId[1]].ToStride() - positions[tId[0]].ToStride(), positions[tId[2]].ToStride() - positions[tId[0]].ToStride());
+
+                var nbuf = new byte[3 * 4];
+                System.Buffer.BlockCopy(normal.ToArray(),0,nbuf,0,nbuf.Length);
+                generatedNormals.Add(nbuf);
+            }
+        }
         List<byte> vertBuf = new();
         for (int i = 0; i < primitive.GetVertexColumns().Positions.Count; i++)
         {
             foreach (var ve in declarationList)
             {
-                vertBuf.AddRange(primitive.VertexAccessors[ve.SemanticName.ToGLTFAccessor(ve.SemanticIndex)].TryGetVertexBytes(i).ToArray());
+                if (!hasNormals && ve.SemanticName == "NORMAL")
+                    vertBuf.AddRange(generatedNormals[i / 3]);
+                else 
+                    vertBuf.AddRange(primitive.VertexAccessors[ve.SemanticName.ToGLTFAccessor(ve.SemanticIndex)].TryGetVertexBytes(i).ToArray());
                 //vertBuf.AddRange(
                 //    ve.SemanticName switch
                 //    {

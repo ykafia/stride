@@ -70,6 +70,23 @@ public static class GltfExtensions
         return BitConverter.GetBytes(v.X).Concat(BitConverter.GetBytes(v.Y)).ToArray();
     }
 
+    public static Quaternion ToStride(this System.Numerics.Quaternion v)
+    {
+        return new Quaternion(v.X, v.Y, v.Z, v.W);
+    }
+    public static Vector4 ToStride(this System.Numerics.Vector4 v)
+    {
+        return new Vector4(v.X, v.Y,v.Z, v.W);
+    }
+    public static Vector3 ToStride(this System.Numerics.Vector3 v)
+    {
+        return new Vector3(v.X, v.Y,v.Z);
+    }
+    public static Vector2 ToStride(this System.Numerics.Vector2 v)
+    {
+        return new Vector2(v.X, v.Y);
+    }
+
 
     public static Graphics.PrimitiveType AsSdPrim(this PrimitiveType p)
     {
