@@ -32,9 +32,15 @@ public partial class GltfMeshConverter
 
 
 
-    public AnimationInfo ConvertAnimation(string fullPath, string v)
+    public AnimationInfo ConvertAnimation(string fullPath, string location)
     {
-        throw new NotImplementedException();
+        var root = LoadGltf(fullPath);
+        var animations = ConvertAnimation(root, Path.GetFileNameWithoutExtension(fullPath));
+        return new AnimationInfo
+        {
+            AnimationClips = animations,
+            Duration = TimeSpan.FromSeconds(1)
+        };
     }
 
     public List<string> ExtractAnimationNodes(ModelRoot root)

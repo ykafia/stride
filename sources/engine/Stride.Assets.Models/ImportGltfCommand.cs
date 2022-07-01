@@ -60,6 +60,12 @@ namespace Stride.Assets.Models
             return sceneData;
         }
 
+        protected override unsafe object ExportAnimation(ICommandContext commandContext, ContentManager contentManager, bool failOnEmptyAnimation)
+        {
+            var ts = TimeSpan.FromSeconds(1);
+            return LoadAnimation(commandContext, contentManager, out ts);
+        }
+
         public override string ToString()
         {
             return "Import Assimp " + base.ToString();

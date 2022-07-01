@@ -24,8 +24,10 @@ namespace Stride.Assets.Models
 
         public bool ImportCustomAttributes { get; set; }
 
-        private unsafe object ExportAnimation(ICommandContext commandContext, ContentManager contentManager, bool failOnEmptyAnimation)
+        protected unsafe virtual object ExportAnimation(ICommandContext commandContext, ContentManager contentManager, bool failOnEmptyAnimation)
         {
+
+
             // Read from model file
             var modelSkeleton = LoadSkeleton(commandContext, contentManager); // we get model skeleton to compare it to real skeleton we need to map to
             AdjustSkeleton(modelSkeleton);
