@@ -49,6 +49,8 @@ namespace Stride.Rendering.Materials
         // --------------------------------------------------
         // Values Precomputed before lighting
         // --------------------------------------------------
+
+        stage stream int lightType;
         
         stage stream float3 matDiffuseVisible;
         

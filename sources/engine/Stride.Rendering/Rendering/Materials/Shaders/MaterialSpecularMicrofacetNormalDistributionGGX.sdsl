@@ -9,7 +9,9 @@ namespace Stride.Rendering.Materials
     {
         override float Compute()
         {
-            return NormalDistributionGGX(streams.alphaRoughness, streams.NdotH);
+            if(streams.lightType == 0)
+                return NormalDistributionGGX(streams.alphaRoughness, streams.NdotH);
+            else return 0;
         }
     };
 }

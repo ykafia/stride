@@ -4,7 +4,7 @@ namespace Stride.Rendering.Lights
 {
     shader LightDiscGroup<int TMaxLightCount> :
         Transformation,
-        MaterialPixelALStream,
+        Math,
         DirectLightGroupPerDraw,    // Required for "PrepareDirectLightCore()", "PrepareDirectLight()", "ComputeAttenuation()" and other stuff.
         LightDisc  // Required for "DiscLightData".
         // LightDiscAttenuationDefault    // Required for "ComputeAttenuation()"
@@ -61,6 +61,7 @@ namespace Stride.Rendering.Lights
         /// </summary>
         override void PrepareDirectLight(int lightIndex)
         {
+            streams.lightType = 1;
             PrepareDirectLightCore(lightIndex);
 
             float illuminance = ComputeIlluminance(streams.PositionWS, Lights[lightIndex].PositionWS, -Lights[lightIndex].PlaneNormalWS, Lights[lightIndex].Radius, streams.normalWS);
