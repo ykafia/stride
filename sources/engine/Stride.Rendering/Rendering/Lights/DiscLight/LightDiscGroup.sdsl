@@ -1,0 +1,88 @@
+// Copyright (c) .NET Foundation and Contributors (https://dotnetfoundation.org/ & https://stride3d.net) and Silicon Studio Corp. (https://www.siliconstudio.co.jp)
+// Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
+namespace Stride.Rendering.Lights
+{
+    shader LightDiscGroup<int TMaxLightCount> :
+        Transformation,
+        MaterialPixelALStream,
+        DirectLightGroupPerDraw,    // Required for "PrepareDirectLightCore()", "PrepareDirectLight()", "ComputeAttenuation()" and other stuff.
+        LightDisc  // Required for "DiscLightData".
+        // LightDiscAttenuationDefault    // Required for "ComputeAttenuation()"
+    {
+        cbuffer PerDraw.Lighting
+        {
+            DiscLightData Lights[TMaxLightCount];
+        }
+
+        override int GetMaxLightCount()
+        {
+            return TMaxLightCount;
+        }
+
+        /// <summary>
+        /// Compute the light color/direction for the specified index within this group
+        /// </summary>
+        override void PrepareDirectLightCore(int lightIndex)
+        {
+            // TODO: Workaraound for SPIR-V compiler. Revert later
+            DiscLightDataInternal data;
+            data.PositionWS = Lights[lightIndex].PositionWS;
+            data.PlaneNormalWS = Lights[lightIndex].PlaneNormalWS;
+            data.Radius = Lights[lightIndex].Radius;
+            data.Color = Lights[lightIndex].Color;
+
+            ProcessLight(data);
+        }
+
+        float ComputeIlluminance(float3 positionWS, float3 lightPositionWS, float3 planeNormal, float radius, float3 normalWS)
+        {
+            float3 lunormalized = lightPositionWS - positionWS;
+
+            float3 L = normalize(lunormalized);
+            float sqrDist = dot(lunormalized, lunormalized);
+
+            bool horizon = false;
+            if(!horizon)
+            {
+                return 
+                    PI * saturate(dot(planeNormal, -L)) *
+                    saturate(dot(normalWS , L ) ) /
+                    (sqrDist / (radius * radius) + 1) ;
+            }
+            else
+            {
+                return 1 * PI ;
+            }
+        
+        }
+
+        /// <summary>
+        /// Compute the light color/direction for the specified index within this group
+        /// </summary>
+        override void PrepareDirectLight(int lightIndex)
+        {
+            PrepareDirectLightCore(lightIndex);
+
+            float illuminance = ComputeIlluminance(streams.PositionWS, Lights[lightIndex].PositionWS, -Lights[lightIndex].PlaneNormalWS, Lights[lightIndex].Radius, streams.normalWS);
+
+            DiscLightDataInternal light = Lights[lightIndex];
+
+            // Compute NdotL
+            streams.NdotL = max(dot(streams.normalWS, streams.lightDirectionWS), 0.0001f);
+
+            // // Computes the shadowColor
+            streams.shadowColor = ComputeShadow(streams.PositionWS.xyz, lightIndex);
+
+            // // Compute the final color with NdotL
+            streams.lightColorNdotL = streams.lightColor * illuminance * 2 * streams.shadowColor * streams.NdotL * streams.lightDirectAmbientOcclusion;
+            streams.lightSpecularColorNdotL = streams.lightColorNdotL;
+
+            // Mask the light by the color of the projected texture:
+            streams.lightColorNdotL *= ComputeTextureProjection(streams.PositionWS.xyz, lightIndex);    // TODO: Modify "streams.lightColor" instead?
+
+        
+            float3 reflectionVectorWS = reflect(-streams.viewWS, streams.normalWS);
+            streams.lightSpecularColorNdotL *= ComputeSpecularTextureProjection(streams.PositionWS.xyz, reflectionVectorWS, lightIndex);
+        }
+    };
+}

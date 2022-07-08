@@ -1,0 +1,57 @@
+// Copyright (c) .NET Foundation and Contributors (https://dotnetfoundation.org/ & https://stride3d.net) and Silicon Studio Corp. (https://www.siliconstudio.co.jp)
+// Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
+namespace Stride.Rendering.Lights
+{
+    shader LightDisc : LightUtil, LightStream, PositionStream4
+    {
+        struct DiscLightData
+        {
+            float4 PositionWS;
+            float4 PlaneNormalWS;
+            [Color]
+            float3 Color;
+            float Range;
+            float Radius;
+            float Intensity;
+        };
+
+        struct DiscLightDataInternal
+        {
+            float4 PositionWS;
+            float4 PlaneNormalWS;
+            [Color]
+            float3 Color;
+            float Range;
+            float Radius;
+            float Intensity;
+        };
+
+        void ProcessLight(DiscLightDataInternal light)
+        {
+            float3 lightVectorNorm;
+            float attenuation = ComputeAttenuation(light, streams.PositionWS.xyz, lightVectorNorm);
+
+            streams.lightPositionWS = light.PositionWS;
+            streams.lightColor = light.Color;
+            streams.lightAttenuation = attenuation;
+            streams.lightDirectionWS = lightVectorNorm;
+        }
+        float cot ( float x ) { return cos ( x ) / sin ( x ) ; }
+        float acot ( float x ) { return atan (1 / x ) ; } 
+
+        float ComputeAttenuation(DiscLightDataInternal light, float3 position, inout float3 lightVectorNorm)
+        {
+            float3 lightVector = light.PositionWS - position;
+            float lightVectorLength = length(lightVector);
+            lightVectorNorm = lightVector / lightVectorLength;
+
+            float lightRadius = light.Radius;
+            float3 lightDirection = light.PlaneNormalWS;
+
+            float attenuation = GetDistanceAttenuation(lightVectorLength, light.Radius * 0.001);
+        
+            // attenuation *= GetAngularAttenuation(lightVectorNorm, lightDirection, 180, 1);
+            return attenuation;
+        }
+    };
+}
