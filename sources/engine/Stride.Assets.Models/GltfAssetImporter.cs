@@ -45,27 +45,8 @@ namespace Stride.Assets.Models
             var meshConverter = new GltfMeshConverter(logger);
             var sceneData = meshConverter.ConvertAnimation(localPath.FullPath, "");
 
-            startTime = CompressedTimeSpan.MaxValue; // This will go down, so we start from positive infinity
-            endTime = CompressedTimeSpan.MinValue;   // This will go up, so we start from negative infinity
-
-            foreach (var animationClip in sceneData.AnimationClips)
-            {
-                foreach (var animationCurve in animationClip.Value.Curves)
-                {
-                    foreach (var compressedTimeSpan in animationCurve.Keys)
-                    {
-                        if (compressedTimeSpan < startTime)
-                            startTime = compressedTimeSpan;
-                        if (compressedTimeSpan > endTime)
-                            endTime = compressedTimeSpan;
-                    }
-                }
-            }
-
-            if (startTime == CompressedTimeSpan.MaxValue)
-                startTime = CompressedTimeSpan.Zero;
-            if (endTime == CompressedTimeSpan.MinValue)
-                endTime = CompressedTimeSpan.Zero;
+            startTime = CompressedTimeSpan.Zero; // This will go down, so we start from positive infinity
+            endTime = CompressedTimeSpan.FromSeconds(5);   // This will go up, so we start from negative infinity
         }
 
         public override IEnumerable<AssetItem> Import(UFile localPath, AssetImporterParameters importParameters)

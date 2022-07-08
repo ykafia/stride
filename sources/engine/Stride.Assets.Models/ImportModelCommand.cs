@@ -15,6 +15,7 @@ using Stride.Shaders;
 using System.Linq;
 using Stride.Core.Assets;
 using Stride.Core.Serialization.Contents;
+using Stride.Core.IO;
 
 namespace Stride.Assets.Models
 {
@@ -94,8 +95,11 @@ namespace Stride.Assets.Models
                 }
                 if (exportedObject is Dictionary<string, AnimationClip> clips)
                 {
-                    foreach(var animClip in clips)
-                        assetManager.Save(animClip.Key, animClip.Value);
+                    foreach (var animClip in clips)
+                    {
+                        var loc = new UFile(Location.FullPath + "/" + animClip.Key);
+                        assetManager.Save(loc, animClip.Value, typeof(AnimationClip));
+                    }
                 }
                 else
                 {

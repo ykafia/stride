@@ -18,6 +18,19 @@ namespace Stride.Importer.Gltf;
 public partial class GltfMeshConverter
 {
 
+
+    public static Graphics.Texture GenerateTexture(string sourceTextureFile, Vector2 textureUVscaling, TextureAddressMode addressModeU = TextureAddressMode.Wrap, TextureAddressMode addressModeV = TextureAddressMode.Wrap, string vfsOutputPath = "")
+    {
+        var textureFileName = Path.GetFileNameWithoutExtension(sourceTextureFile);
+
+        var uvScaling = textureUVscaling;
+        var textureName = textureFileName;
+
+        return AttachedReferenceManager.CreateProxyObject<Graphics.Texture>(AssetId.Empty, textureName);
+
+        
+    }
+
     public static ComputeTextureScalar GenerateTextureScalar(string sourceTextureFile, TextureCoordinate textureUVSetIndex, Vector2 textureUVscaling, TextureAddressMode addressModeU = TextureAddressMode.Wrap, TextureAddressMode addressModeV = TextureAddressMode.Wrap, string vfsOutputPath = "")
     {
         var textureFileName = Path.GetFileNameWithoutExtension(sourceTextureFile);
@@ -81,8 +94,11 @@ public partial class GltfMeshConverter
                             material.Attributes.DiffuseModel = new MaterialDiffuseLambertModelFeature();
                             break;
                         case "MetallicRoughness":
-                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(new ComputeFloat(0.5f));
-                            material.Attributes.Specular = new MaterialMetalnessMapFeature(GenerateTextureScalar(imgPath, (TextureCoordinate)chan.TextureCoordinate, Vector2.One));
+                            var tex = GenerateTexture(imgPath, Vector2.One));
+                            var metal = new ComputeTextureScalar(tex, (TextureCoordinate)chan.TextureCoordinate, Vector2.One, Vector2.Zero) { Channel = ColorChannel.R };
+                            var gloss = new ComputeTextureScalar(tex, (TextureCoordinate)chan.TextureCoordinate, Vector2.One, Vector2.Zero) { Channel = ColorChannel.G };
+                            material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(gloss);
+                            material.Attributes.Specular = new MaterialMetalnessMapFeature(metal);
                             material.Attributes.SpecularModel = new MaterialSpecularMicrofacetModelFeature();
                             break;
                         case "SpecularColor":

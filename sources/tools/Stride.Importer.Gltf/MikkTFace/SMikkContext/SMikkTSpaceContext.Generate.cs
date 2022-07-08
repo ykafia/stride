@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
+using Stride.Core.Mathematics;
 using System.Text;
 using System.Threading.Tasks;
 using SharpGLTF.Geometry;
@@ -32,13 +32,8 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             float fThresCos = (float)Math.Cos((fAngularThreshold * (float)Math.PI) / 180.0f);
 
             // count triangles on supported faces
-            for (f = 0; f < iNrFaces; f++)
-            {
-                int verts = GetNumVerticesOfFace(f);
-                if (verts == 3) ++iNrTrianglesIn;
-                else if (verts == 4) iNrTrianglesIn += 2;
-            }
-            if (iNrTrianglesIn <= 0) return false;
+
+            iNrTrianglesIn = iNrFaces;
 
             // allocate memory for an index list
             piTriListIn = new int[iNrTrianglesIn][].Select(x => new int[3]).ToArray();// (int*)malloc(sizeof(int) * 3 * iNrTrianglesIn);
@@ -183,6 +178,7 @@ namespace Stride.Importer.Gltf.MikkTFace.SMikkContext
             return true;
         }
 
+        
         public int Build4RuleGroups(List<STriInfo> pTriInfos, List<SGroup> pGroups, int[][] piGroupTrianglesBuffer, int[][] piTriListIn, int iNrTrianglesIn)
         {
 

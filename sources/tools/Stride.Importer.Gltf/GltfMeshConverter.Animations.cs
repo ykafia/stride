@@ -34,7 +34,7 @@ public partial class GltfMeshConverter
                 // Add Curve
                 ConvertCurves(x.Channels, root).ToList().ForEach(v => clip.AddCurve(v.Key, v.Value));
                 string name = x.Name ?? filename + "_Animation_" + x.LogicalIndex;
-                //if (clip.Curves.Count > 1) clip.Optimize();
+                if (clip.Curves.Count > 1) clip.Optimize();
                 return (name, clip);
             }
             )

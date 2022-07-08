@@ -137,24 +137,19 @@ public partial class GltfMeshConverter
             );
             byteOffset += v.Format.ByteSize;
         }
-        List<byte[]> generatedNormals = new();
+        List<byte[]> generatedNormalsBytes = new();
+        List<Vector3[]> generatedNormals = new();
+
         bool hasNormals = true;
         if (!declarationList.Any(x => x.SemanticName == "NORMAL"))
         {
             declarationList.Add(VertexElement.Normal<Vector3>());
             hasNormals = false;
-            var indices = new List<int[]>();
-            if (primitive.GetIndices() is not null) indices = primitive.GetIndices().Chunk(3).Select(x => new int[] { (int)x[0], (int)x[1], (int)x[2] }).ToList();
-            else if (primitive.GetTriangleIndices() is not null) indices = primitive.GetTriangleIndices().Select(x => new int[] { x.A, x.B, x.C }).ToList();
-            else throw new Exception("No indices to generate normals");
-            var positions = primitive.GetVertexColumns().Positions;
-            foreach(var tId in indices)
+            foreach(var n in GenerateNormals(primitive))
             {
-                var normal = Vector3.Cross(positions[tId[1]].ToStride() - positions[tId[0]].ToStride(), positions[tId[2]].ToStride() - positions[tId[0]].ToStride());
-
                 var nbuf = new byte[3 * 4];
-                System.Buffer.BlockCopy(normal.ToArray(),0,nbuf,0,nbuf.Length);
-                generatedNormals.Add(nbuf);
+                System.Buffer.BlockCopy(n.ToArray(),0,nbuf,0,nbuf.Length);
+                generatedNormalsBytes.Add(nbuf);
             }
         }
         List<byte> vertBuf = new();
@@ -163,7 +158,7 @@ public partial class GltfMeshConverter
             foreach (var ve in declarationList)
             {
                 if (!hasNormals && ve.SemanticName == "NORMAL")
-                    vertBuf.AddRange(generatedNormals[i / 3]);
+                    vertBuf.AddRange(generatedNormalsBytes[i]);
                 else 
                     vertBuf.AddRange(primitive.VertexAccessors[ve.SemanticName.ToGLTFAccessor(ve.SemanticIndex)].TryGetVertexBytes(i).ToArray());
                 //vertBuf.AddRange(
