@@ -94,7 +94,7 @@ public partial class GltfMeshConverter
                             material.Attributes.DiffuseModel = new MaterialDiffuseLambertModelFeature();
                             break;
                         case "MetallicRoughness":
-                            var tex = GenerateTexture(imgPath, Vector2.One));
+                            var tex = GenerateTexture(imgPath, Vector2.One);
                             var metal = new ComputeTextureScalar(tex, (TextureCoordinate)chan.TextureCoordinate, Vector2.One, Vector2.Zero) { Channel = ColorChannel.R };
                             var gloss = new ComputeTextureScalar(tex, (TextureCoordinate)chan.TextureCoordinate, Vector2.One, Vector2.Zero) { Channel = ColorChannel.G };
                             material.Attributes.MicroSurface = new MaterialGlossinessMapFeature(gloss);

@@ -144,11 +144,17 @@ public partial class GltfMeshConverter
         if (!declarationList.Any(x => x.SemanticName == "NORMAL"))
         {
             declarationList.Add(VertexElement.Normal<Vector3>());
+            declarationList.Add(VertexElement.Tangent<Vector3>());
+            declarationList.Add(VertexElement.BiTangent<Vector3>());
+
             hasNormals = false;
-            foreach(var n in GenerateNormals(primitive))
+            GenerateNormals(primitive, out var normals, out var tangents, out var bitangents);
+            for (int i = 0; i < normals.Length; i++)
             {
-                var nbuf = new byte[3 * 4];
-                System.Buffer.BlockCopy(n.ToArray(),0,nbuf,0,nbuf.Length);
+                var nbuf = new byte[3 * 4 * 3];
+                System.Buffer.BlockCopy(normals[i].ToArray(),0,nbuf,0,nbuf.Length);
+                System.Buffer.BlockCopy(tangents[i].ToArray(),3*4,nbuf,0,nbuf.Length);
+                System.Buffer.BlockCopy(bitangents[i].ToArray(),3*4*2,nbuf,0,nbuf.Length);
                 generatedNormalsBytes.Add(nbuf);
             }
         }
