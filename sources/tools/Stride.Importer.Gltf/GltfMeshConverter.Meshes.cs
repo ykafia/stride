@@ -138,12 +138,16 @@ public partial class GltfMeshConverter
             byteOffset += v.Format.ByteSize;
         }
         List<byte[]> generatedNormalsBytes = new();
+        List<byte[]> generatedTangentsBytes = new();
+        List<byte[]> generatedBiTangentsBytes = new();
         List<Vector3[]> generatedNormals = new();
 
         bool hasNormals = true;
-        if (!declarationList.Any(x => x.SemanticName == "NORMAL"))
+        if (!declarationList.Any(x => x.SemanticName == "NORMAL") || !declarationList.Any(x => x.SemanticName == "TANGENT"))
         {
-            declarationList.Add(VertexElement.Normal<Vector3>());
+
+            if(!declarationList.Any(x => x.SemanticName == "NORMAL")) 
+                declarationList.Add(VertexElement.Normal<Vector3>());
             declarationList.Add(VertexElement.Tangent<Vector3>());
             declarationList.Add(VertexElement.BiTangent<Vector3>());
 
@@ -151,11 +155,17 @@ public partial class GltfMeshConverter
             GenerateNormals(primitive, out var normals, out var tangents, out var bitangents);
             for (int i = 0; i < normals.Length; i++)
             {
-                var nbuf = new byte[3 * 4 * 3];
+                var nbuf = new byte[3 * 4];
+                var tbuf = new byte[3 * 4];
+                var btbuf = new byte[3 * 4];
+
                 System.Buffer.BlockCopy(normals[i].ToArray(),0,nbuf,0,nbuf.Length);
-                System.Buffer.BlockCopy(tangents[i].ToArray(),3*4,nbuf,0,nbuf.Length);
-                System.Buffer.BlockCopy(bitangents[i].ToArray(),3*4*2,nbuf,0,nbuf.Length);
+                System.Buffer.BlockCopy(tangents[i].ToArray(),0,tbuf,0,tbuf.Length);
+                System.Buffer.BlockCopy(bitangents[i].ToArray(),0,btbuf,0,btbuf.Length);
                 generatedNormalsBytes.Add(nbuf);
+                generatedTangentsBytes.Add(tbuf);
+                generatedBiTangentsBytes.Add(btbuf);
+
             }
         }
         List<byte> vertBuf = new();
@@ -165,6 +175,10 @@ public partial class GltfMeshConverter
             {
                 if (!hasNormals && ve.SemanticName == "NORMAL")
                     vertBuf.AddRange(generatedNormalsBytes[i]);
+                else if (!hasNormals && ve.SemanticName == "TANGENT")
+                    vertBuf.AddRange(generatedTangentsBytes[i]);
+                else if (!hasNormals && ve.SemanticName == "BITANGENT")
+                    vertBuf.AddRange(generatedBiTangentsBytes[i]);
                 else 
                     vertBuf.AddRange(primitive.VertexAccessors[ve.SemanticName.ToGLTFAccessor(ve.SemanticIndex)].TryGetVertexBytes(i).ToArray());
                 //vertBuf.AddRange(

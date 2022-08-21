@@ -34,16 +34,19 @@ public partial class GltfMeshConverter
     public void GenerateNormals(MeshPrimitive primitive, out Vector3[] normals, out Vector3[] tangents, out Vector3[] bitangents, bool flatNormals = false)
     {
         var posits = primitive.GetVertexColumns().Positions.Select(x => x.ToStride()).ToList();
-        IEnumerable<Triangle> tris = primitive
+        var texcoords = primitive.GetVertexColumns().TexCoords0.Select(x => x.ToStride()).ToList();
+        var texcoords1 = primitive.GetVertexColumns().TexCoords1.Select(x => x.ToStride()).ToList();
+        List<Triangle> tris = primitive
             .GetTriangleIndices()
             .Select(
-                x => new Triangle 
-                { 
-                    A = x.A, 
-                    B = x.B, 
-                    C = x.C, 
-                    Positions = new Vector3[] { posits[x.A], posits[x.B], posits[x.C] } 
-                });
+                x => new Triangle
+                {
+                    A = x.A,
+                    B = x.B,
+                    C = x.C,
+                    Positions = new Vector3[] { posits[x.A], posits[x.B], posits[x.C] },
+                    TexCoords = new Vector2[] { texcoords[x.A], texcoords[x.B], texcoords[x.C] }
+                }).ToList();
         //if (flatNormals)
         //{
         //    normals = tris.Select(x => x.FlatNormal).SelectMany(x => new Vector3[] { x, x, x }).ToArray();
@@ -52,9 +55,12 @@ public partial class GltfMeshConverter
         //{
         foreach (var tri in tris)
         {
-            tri.Normals[0] = Vector3.Normalize(tris.Where(x => (x.A == tri.A) || (x.B == tri.A) || (x.C == tri.A)).Select(x => x.FlatNormal).VectorAverage());
-            tri.Normals[1] = Vector3.Normalize(tris.Where(x => (x.A == tri.B) || (x.B == tri.B) || (x.C == tri.B)).Select(x => x.FlatNormal).VectorAverage());
-            tri.Normals[2] = Vector3.Normalize(tris.Where(x => (x.A == tri.C) || (x.B == tri.C) || (x.C == tri.C)).Select(x => x.FlatNormal).VectorAverage());
+            tri.Normals[0] = tri.FlatNormal;//Vector3.Normalize(tris.Where(x => (x.A == tri.A) || (x.B == tri.A) || (x.C == tri.A)).Select(x => x.FlatNormal).VectorAverage());
+            tri.Normals[1] = tri.FlatNormal;//Vector3.Normalize(tris.Where(x => (x.A == tri.B) || (x.B == tri.B) || (x.C == tri.B)).Select(x => x.FlatNormal).VectorAverage());
+            tri.Normals[2] = tri.FlatNormal;//Vector3.Normalize(tris.Where(x => (x.A == tri.C) || (x.B == tri.C) || (x.C == tri.C)).Select(x => x.FlatNormal).VectorAverage());
+
+            //tri.Normals = new Vector3[] { tri.FlatNormal, tri.FlatNormal, tri.FlatNormal };
+
 
             var edge1 = tri.Positions[1] - tri.Positions[0];
             var edge2 = tri.Positions[2] - tri.Positions[0];
@@ -83,14 +89,11 @@ public partial class GltfMeshConverter
             tri.BiTangents[1] += b;
             tri.BiTangents[2] += b;
 
-
-        }
-        normals = tris.SelectMany(x => x.Normals).ToArray();
+        };
+        normals = tris.SelectMany(x => new Vector3[] { x.FlatNormal, x.FlatNormal, x.FlatNormal }).ToArray();
         tangents = tris.SelectMany(x => x.Tangents).ToArray();
         bitangents = tris.SelectMany(x => x.BiTangents).ToArray();
-        //}
     }
-
 }
 public static class EnumerableExtension
 {
