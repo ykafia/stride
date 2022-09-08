@@ -959,7 +959,7 @@ public class MikktspaceTangentGenerator
             //      BuildNeighborsSlow(pTriInfos, piTriListIn, iNrTrianglesIn);
             //    else
             //    {
-            buildNeighborsFast(pTriInfos, pEdges, piTriListIn, iNrTrianglesIn);
+            BuildNeighborsFast(pTriInfos, pEdges, piTriListIn, iNrTrianglesIn);
 
             //    }
         }
@@ -1434,7 +1434,7 @@ public class MikktspaceTangentGenerator
         }
     }
 
-    void buildNeighborsFast(TriInfo[] pTriInfos, Edge[] pEdges, int[] piTriListIn, int iNrTrianglesIn)
+    void BuildNeighborsFast(TriInfo[] pTriInfos, Edge[] pEdges, int[] piTriListIn, int iNrTrianglesIn)
     {
         // build array of edges
         long uSeed = INTERNAL_RND_SORT_SEED;        // could replace with a random seed?
@@ -1453,7 +1453,7 @@ public class MikktspaceTangentGenerator
         }
 
         // sort over all edges by i0, this is the pricey one.
-        quickSortEdges(pEdges, 0, iNrTrianglesIn * 3 - 1, 0, uSeed);  // sort channel 0 which is i0
+        QuickSortEdges(pEdges, 0, iNrTrianglesIn * 3 - 1, 0, uSeed);  // sort channel 0 which is i0
 
         // sub sort over i1, should be fast.
         // could replace this with a 64 bit int sort over (i0,i1)
@@ -1468,7 +1468,7 @@ public class MikktspaceTangentGenerator
                 int iR = i - 1;
                 //int iElems = i-iL;
                 iCurStartIndex = i;
-                quickSortEdges(pEdges, iL, iR, 1, uSeed);  // sort channel 1 which is i1
+                QuickSortEdges(pEdges, iL, iR, 1, uSeed);  // sort channel 1 which is i1
             }
         }
 
@@ -1484,7 +1484,7 @@ public class MikktspaceTangentGenerator
                 int iR = i - 1;
                 //int iElems = i-iL;
                 iCurStartIndex = i;
-                quickSortEdges(pEdges, iL, iR, 2, uSeed);  // sort channel 2 which is f
+                QuickSortEdges(pEdges, iL, iR, 2, uSeed);  // sort channel 2 which is f
             }
         }
 
@@ -1599,7 +1599,7 @@ public class MikktspaceTangentGenerator
         }
     }
 
-    void quickSortEdges(Edge[] pSortBuffer, int iLeft, int iRight, int channel, long uSeed)
+    void QuickSortEdges(Edge[] pSortBuffer, int iLeft, int iRight, int channel, long uSeed)
     {
         // early out
         Edge sTmp;
@@ -1658,11 +1658,11 @@ public class MikktspaceTangentGenerator
 
         if (iLeft < iR)
         {
-            quickSortEdges(pSortBuffer, iLeft, iR, channel, uSeed);
+            QuickSortEdges(pSortBuffer, iLeft, iR, channel, uSeed);
         }
         if (iL < iRight)
         {
-            quickSortEdges(pSortBuffer, iL, iRight, channel, uSeed);
+            QuickSortEdges(pSortBuffer, iL, iRight, channel, uSeed);
         }
     }
 
