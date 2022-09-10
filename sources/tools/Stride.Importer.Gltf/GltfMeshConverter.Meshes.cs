@@ -149,22 +149,16 @@ public partial class GltfMeshConverter
             if(!declarationList.Any(x => x.SemanticName == "NORMAL")) 
                 declarationList.Add(VertexElement.Normal<Vector3>());
             declarationList.Add(VertexElement.Tangent<Vector3>());
-            declarationList.Add(VertexElement.BiTangent<Vector3>());
+            //declarationList.Add(VertexElement.BiTangent<Vector3>());
 
             hasNormals = false;
-            GenerateNormals(primitive, out var normals, out var tangents, out var bitangents);
-            for (int i = 0; i < normals.Length; i++)
+            GenerateNormalsAndTangents(primitive, out var normals, out var tangents);
+            //var bitangents = primitive.GetVertexColumns().;
+            for (int i = 0; i < primitive.GetVertexColumns().Normals.Count; i++)
             {
-                var nbuf = new byte[3 * 4];
-                var tbuf = new byte[3 * 4];
-                var btbuf = new byte[3 * 4];
-
-                System.Buffer.BlockCopy(normals[i].ToArray(),0,nbuf,0,nbuf.Length);
-                System.Buffer.BlockCopy(tangents[i].ToArray(),0,tbuf,0,tbuf.Length);
-                System.Buffer.BlockCopy(bitangents[i].ToArray(),0,btbuf,0,btbuf.Length);
-                generatedNormalsBytes.Add(nbuf);
-                generatedTangentsBytes.Add(tbuf);
-                generatedBiTangentsBytes.Add(btbuf);
+                generatedNormalsBytes.Add(normals[i].ToBytes());
+                generatedTangentsBytes.Add(tangents[i].ToBytes());
+                //generatedBiTangentsBytes.Add(btbuf);
 
             }
         }

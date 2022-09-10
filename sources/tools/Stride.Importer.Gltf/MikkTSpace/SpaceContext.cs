@@ -31,12 +31,15 @@ public class MikkTSpaceImpl : MikkTSpaceContext
 {
 
     MeshPrimitive mesh;
+    public Vector3[] Tangents;
+    Vector3[] normals;
 
-    public MikkTSpaceImpl(MeshPrimitive mesh)
+    public MikkTSpaceImpl(MeshPrimitive mesh, Vector3[] ns)
     {
         this.mesh = mesh;
         //replacing any existing tangent buffer, if you came here you want them new.
-        mesh.GetVertexColumns().Tangents = new List<Vector4>(mesh.GetVertexColumns().Positions.Count);
+        Tangents = new Vector3[mesh.GetVertexColumns().Positions.Count];
+        normals = ns;
     }
 
 
@@ -63,7 +66,7 @@ public class MikkTSpaceImpl : MikkTSpaceContext
     public void GetNormal(int face, int vert, out float[] normal)
     {
         int vertIndex = GetIndex(face, vert);
-        var normals = mesh.GetVertexColumns().Normals;
+        //var normals = mesh.GetVertexColumns().Normals;
         normal = new float[] { normals[vertIndex].X, normals[vertIndex].Y, normals[vertIndex].Z };
 
     }
@@ -80,12 +83,11 @@ public class MikkTSpaceImpl : MikkTSpaceContext
     public void SetTSpaceBasic(float[] tangent, float sign, int face, int vert)
     {
         int vertIndex = GetIndex(face, vert);
-        if (mesh.GetVertexColumns().Tangents == null)
-            mesh.GetVertexColumns().Tangents = new List<Vector4>(mesh.GetVertexColumns().Positions.Count);
-        var tangentBuffer = mesh.GetVertexColumns().Tangents;
-        for (int i = tangentBuffer.Count - 1; i <= vertIndex; i++)
-            tangentBuffer.Add(default);
-        tangentBuffer[vertIndex] = new Vector4(tangent);
+        if (Tangents == null)
+            Tangents = new Vector3[mesh.GetVertexColumns().Positions.Count];
+
+        Tangents[vertIndex] = new Vector3(tangent);
+        
     }
 
 

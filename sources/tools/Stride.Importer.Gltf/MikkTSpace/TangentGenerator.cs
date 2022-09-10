@@ -37,10 +37,10 @@ public class MikktspaceTangentGenerator
         return (face << 2) | (vert & 0x3);
     }
 
-    private void IndexToData(int[] face, int[] vert, int indexIn)
+    private void IndexToData(ref int face, ref int vert, int indexIn)
     {
-        vert[0] = indexIn & 0x3;
-        face[0] = indexIn >> 2;
+        vert = indexIn & 0x3;
+        face = indexIn >> 2;
     }
 
     TSpace AvgTSpace(TSpace tS0, TSpace tS1)
@@ -67,14 +67,14 @@ public class MikktspaceTangentGenerator
         return tsRes;
     }
 
-    public void Generate(MeshPrimitive s)
+    public void Generate(MeshPrimitive s, Vector3[] normals, out Vector3[] tangents)
     {
-
-        MikkTSpaceImpl context = new MikkTSpaceImpl(s);
+        MikkTSpaceImpl context = new MikkTSpaceImpl(s, normals);
         if (!GenTangSpaceDefault(context))
         {
             logger.Error("Failed to generate tangents for geometry");
         }
+        tangents = context.Tangents;
         //TangentUtils.generateBindPoseTangentsIfNecessary(g.GetMesh());
 
     }
@@ -235,7 +235,6 @@ public class MikktspaceTangentGenerator
     // it is IMPORTANT that this function is called to evaluate the hash since
     // inlining could potentially reorder instructions and generate different
     // results for the same effective input value fVal.
-    //TODO nehon: Wuuttt? something is fishy about this. How the fuck inlining can reorder instructions? Is that a C thing?
     int FindGridCell(float min, float max, float val)
     {
         float fIndex = CELLS * ((val - min) / (max - min));
@@ -382,7 +381,7 @@ public class MikktspaceTangentGenerator
             }
             else
             {
-                //TODO Nehon: pTempVert is very unlikely to be null...maybe remove this...
+                //TODO Ulikely to be null 
                 int[] pTable = piHashTable[piHashOffSets[k]..(piHashOffSets[k] + iEntries)]; // Array.Copy(piHashTable, piHashOffSets[k], pTable, 0, piHashOffSets[k] + iEntries);
                 MergeVertsSlow(piTriList_in_and_out, mikkTSpace, pTable, iEntries);
             }
@@ -540,7 +539,6 @@ public class MikktspaceTangentGenerator
         }
     }
 
-    //TODO Nehon: Used only if an array failed to be allocated... Can't happen in Java...
     void MergeVertsSlow(int[] piTriList_in_and_out, MikkTSpaceContext mikkTSpace, int[] pTable, int iEntries)
     {
         // this can be optimized further using a tree structure or more hashing.
@@ -666,8 +664,7 @@ public class MikktspaceTangentGenerator
             }
             else
             {
-                //Note, Nehon: we should never Get there with JME, because we don't support quads... 
-                //but I'm going to let it there in case someone needs it... Just know this code is not tested.
+                // Should not go there, we don't want to support quads but just in case
                 {//TODO remove those useless brackets...
                     pTriInfos[iDstTriIndex + 1].orgFaceNumber = f;
                     pTriInfos[iDstTriIndex + 1].tSpacesOffs = iTSpacesOffs;
@@ -772,31 +769,30 @@ public class MikktspaceTangentGenerator
 
     Vector3 GetPosition(MikkTSpaceContext mikkTSpace, int index)
     {
-        //TODO nehon: very ugly but works... using arrays to pass integers as references in the IndexToData
-        int[] iF = new int[1];
-        int[] iI = new int[1];
-        IndexToData(iF, iI, index);
-        mikkTSpace.GetPosition(iF[0], iI[0], out var pos);
-        return new Vector3(pos[0], pos[1], pos[2]);
+        int iF = 0;
+        int iI = 0;
+        IndexToData(ref iF, ref iI, index);
+        mikkTSpace.GetPosition(iF, iI, out var pos);
+        return new Vector3(pos);
     }
 
     Vector3 GetNormal(MikkTSpaceContext mikkTSpace, int index)
     {
         //TODO nehon: very ugly but works... using arrays to pass integers as references in the IndexToData
-        int[] iF = new int[1];
-        int[] iI = new int[1];
-        IndexToData(iF, iI, index);
-        mikkTSpace.GetNormal(iF[0], iI[0], out var norm);
-        return new Vector3(norm[0], norm[1], norm[2]);
+        int iF = 0;
+        int iI = 0;
+        IndexToData(ref iF, ref iI, index);
+        mikkTSpace.GetNormal(iF, iI, out var norm);
+        return new Vector3(norm);
     }
 
     Vector3 GetTexCoord(MikkTSpaceContext mikkTSpace, int index)
     {
         //TODO nehon: very ugly but works... using arrays to pass integers as references in the IndexToData
-        int[] iF = new int[1];
-        int[] iI = new int[1];
-        IndexToData(iF, iI, index);
-        mikkTSpace.GetTexCoord(iF[0], iI[0], out var texc);
+        int iF = 0;
+        int iI = 0;
+        IndexToData(ref iF, ref iI, index);
+        mikkTSpace.GetTexCoord(iF, iI, out var texc);
         return new Vector3(texc[0], texc[1], 1.0f);
     }
 
