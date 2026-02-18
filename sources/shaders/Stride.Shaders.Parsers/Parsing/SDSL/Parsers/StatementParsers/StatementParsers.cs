@@ -81,11 +81,16 @@ public record struct StatementParsers : IParser<Statement>
     internal static bool Assignments<TScanner>(ref TScanner scanner, ParseResult result, out Statement parsed, ParseError? orError = null)
         where TScanner : struct, IScanner
         => new AssignmentsParser().Match(ref scanner, result, out parsed, orError);
+    internal static bool ChainAssignments<TScanner>(ref TScanner scanner, ParseResult result, out Statement parsed, ParseError? orError = null)
+        where TScanner : struct, IScanner
+        => new ChainAssignmentsParser().Match(ref scanner, result, out parsed, orError);
     internal static bool DeclareOrAssign<TScanner>(ref TScanner scanner, ParseResult result, out Statement parsed, ParseError? orError = null)
         where TScanner : struct, IScanner
     {
         var position = scanner.Position;
         if (Assignments(ref scanner, result, out parsed, orError))
+            return true;
+        else if (ChainAssignments(ref scanner, result, out parsed, orError))
             return true;
         else if (Declare(ref scanner, result, out parsed, orError))
             return true;
@@ -407,5 +412,30 @@ public record struct AssignmentsParser : IParser<Statement>
             else return Parsers.Exit(ref scanner, result, out parsed, position, new(SDSLErrorMessages.SDSL0033, scanner[scanner.Position], scanner.Memory));
         }
         else return Parsers.Exit(ref scanner, result, out parsed, position, orError);
+    }
+}
+
+public record struct ChainAssignmentsParser : IParser<Statement>
+{
+    public readonly bool Match<TScanner>(ref TScanner scanner, ParseResult result, out Statement parsed, in ParseError? orError = null)
+        where TScanner : struct, IScanner
+    {
+        var position = scanner.Position;
+        Stack<Expression> expressions = [];
+        Stack<AssignOperator> operators = [];
+        do
+        {
+            if (Tokens.AnyOf(["=", "+=", "-=", "*=", "/=", "<<=", ">>=", "^=", "|=", "&="], ref scanner, out var opTxt) && expressions.Count == operators.Count + 1)
+                operators.Push(opTxt.ToAssignOperator());
+            else if (ExpressionParser.Expression(ref scanner, result, out var expression) && expressions.Count == operators.Count)
+                expressions.Push(expression);
+            else return Parsers.Exit(ref scanner, result, out parsed, position);
+        }
+        while (!scanner.IsEof && !Tokens.Char(';', ref scanner));
+        if (!Tokens.Char(';', ref scanner, advance: true))
+            return Parsers.Exit(ref scanner, result, out parsed, position);
+        parsed = new ChainAssignment(expressions, operators, scanner[position..scanner.Position]);
+        return true;
+
     }
 }

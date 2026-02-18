@@ -1,4 +1,5 @@
 using System.Text;
+using Stride.Core.IO;
 using Stride.Shaders.Core;
 using Stride.Shaders.Parsing.Analysis;
 using Stride.Shaders.Spirv;
@@ -82,6 +83,37 @@ public abstract class Declaration(TypeName typename, TextLocation info) : Statem
     public TypeName TypeName { get; set; } = typename;
 }
 
+public partial class ChainAssignment(Stack<Expression> expressions, Stack<AssignOperator> operators, TextLocation info) : Statement(info)
+{
+    Stack<Expression> Expressions { get; set; } = expressions;
+    Stack<AssignOperator> Operators { get; set; } = operators;
+
+    public override void Compile(SymbolTable table, CompilerUnit compiler)
+    {
+        // a = b = c = d = 20;
+        // d = 20 | pop 20, pop operator and peek at d. Create instruction d = 20
+        // c = d  | pop d, pop operator and peek at c. Create instruction 
+        // b = c
+        // a = b
+        while (Expressions.TryPop(out var current))
+        {
+            if (Expressions.TryPeek(out var left))
+            {
+                var o = Operators.Pop();
+                var currValue = current.CompileAsValue(table, compiler);
+                var leftValue = left.CompileAsValue(table, compiler);
+                switch (o)
+                {
+                    case AssignOperator.Simple:
+                        compiler.Builder.Insert(new OpStore(leftValue.Id, currValue.Id, null, []));
+                        break;
+                    default:
+                        throw new NotImplementedException("Assign operator not yet supported");
+                }
+            }
+        }
+    }
+}
 public partial class VariableAssign(Expression variable, bool isConst, TextLocation info, AssignOperator? op = null, Expression? value = null) : Statement(info)
 {
     public Expression Variable { get; set; } = variable;
